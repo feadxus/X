@@ -1,0 +1,135 @@
+name: Free Up Disk Space
+
+on:
+  # 手动触发
+  workflow_dispatch:
+
+jobs:
+  build:
+    # 指定工作运行的操作系统环境为 Ubuntu 最新版本
+    runs-on: ubuntu-latest
+
+    # 定义一系列的步骤，每一步依次执行
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v2
+
+      - name: Pull zgip Image
+        run: |
+          sudo apt update
+          sudo apt install gzip
+
+      - name: Install rclone
+        run: |
+          curl https://rclone.org/install.sh | sudo bash
+
+      - name: Setup rclone config
+        run: |
+          mkdir -p ~/.config/rclone
+          cp rclone.conf ~/.config/rclone/
+
+      - name: Debug rclone config
+        run: cat ~/.config/rclone/rclone.conf
+
+      - name: Upload Docker Image with tardrive
+        run: |
+          # 确保目标目录存在
+          sudo mkdir -p /home/runner/mount
+          sudo chown $USER:$USER /home/runner/mount
+          sudo chmod 777 /home/runner/mount
+    
+          # 挂载 Google Drive 到 /mount 目录
+          # sudo rclone mount Google: /home/runner/mount --vfs-cache-mode full &
+    
+          # 等待挂载完成，通常可以通过某种方式确认挂载成功
+          sleep 10
+
+      - name: 查看清理前磁盘空间
+        run: df -h /
+
+#      - name: 删除 .NET SDK（/usr/share/dotnet）
+#        run: sudo rm -rf /usr/share/dotnet
+#        # .NET 开发工具，释放约 3–6 GB，除非你用 C#/.NET
+
+#      - name: 删除 Android SDK（/usr/local/lib/android）
+#        run: sudo rm -rf /usr/local/lib/android
+#        # Android 构建工具，释放约 10–20 GB，除非做安卓构建
+
+#      - name: 删除语言工具缓存（/opt/hostedtoolcache）
+#        run: sudo rm -rf /opt/hostedtoolcache
+#        # 预装语言版本缓存（如 Node.js、Python、Go），释放约 5–10 GB
+
+#      - name: 删除 PowerShell（/usr/local/share/powershell）
+#        run: sudo rm -rf /usr/local/share/powershell
+#        # PowerShell，基本用不到，释放约 0.5–1 GB
+
+#      - name: 删除 Chromium（/usr/local/share/chromium）
+#        run: sudo rm -rf /usr/local/share/chromium
+#        # 浏览器自动化工具，除非你用 Puppeteer、Playwright
+
+#      - name: 删除 Swift 工具链（/usr/share/swift）
+#        run: sudo rm -rf /usr/share/swift
+#        # Swift 编译器，释放约 1–2 GB，除非编译 iOS 代码
+
+#      - name: 删除 Java JDK（/usr/lib/jvm）
+#        run: sudo rm -rf /usr/lib/jvm
+#        # 预装的 JDK（Java），释放 1–2 GB，除非你写 Java
+
+#      - name: 删除 Azure CLI 工具（/opt/az）
+#        run: sudo rm -rf /opt/az
+#        # Azure 命令行工具，除非你部署到 Azure
+
+#      - name: 删除微软工具链（/opt/microsoft）
+#        run: sudo rm -rf /opt/microsoft
+#        # VS Code Server 等，基本不用
+
+#      - name: 查看清理后磁盘空间
+#        run: df -h /
+
+      - name: Pull Docker Image (amd64 architecture)
+        run: |
+          docker pull --platform linux/amd64 hackmdio/hackmd
+
+      - name: Save the amd64 image to a tar file
+        run: |
+          docker save hackmdio/hackmd --platform linux/amd64 -o hackmdio_hackmd_amd64.tar
+
+      - name: Upload the amd64 image tar file as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hackmdio_hackmd-amd64
+          path: hackmdio_hackmd_amd64.tar
+#          retention-days: 90
+
+#      - name: Pull Docker Image (arm64 architecture)
+#        run: |
+#          docker pull --platform linux/arm64 quay.io/prometheuscommunity/postgres-exporter
+
+#      - name: Save the arm64 image to a tar file
+#        run: |
+#          docker save quay.io/prometheuscommunity/postgres-exporter -o postgres-exporter_arm64.tar
+
+#      - name: Upload the arm64 image tar file as an artifact
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: postgres-exporter-image-arm64
+#          path: postgres-exporter_arm64.tar
+#          retention-days: 90
+
+#      - name: 克隆 git 项目
+#        run: |
+#          git clone https://github.com/cyuquan8/thermal_signature_drone_detection.git
+
+#      - name: 压缩 git 项目
+#        run: |
+#          tar -czf thermal_signature_drone_detection.tar.gz thermal_signature_drone_detection/
+
+#      - name: 上传 git 项目到 actions
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: thermal_signature_drone_detection
+#          path: thermal_signature_drone_detection.tar.gz
+#          retention-days: 90
