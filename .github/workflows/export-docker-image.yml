@@ -91,11 +91,11 @@ jobs:
 
       - name: Pull Docker Image (amd64 architecture)
         run: |
-          docker pull --platform linux/amd64 athomasson2/ebook2audiobook
+          docker pull --platform linux/amd64 athomasson2/ebook2audiobook:cpu
 
       - name: Save the amd64 image to a tar file
         run: |
-          docker save athomasson2/ebook2audiobook --platform linux/amd64 -o athomasson2_ebook2audiobook_amd64.tar
+          docker save athomasson2/ebook2audiobook:cpu --platform linux/amd64 -o athomasson2_ebook2audiobook_amd64.tar
 
 #      - name: Split the tar file into 2GB chunks
 #        run: |
