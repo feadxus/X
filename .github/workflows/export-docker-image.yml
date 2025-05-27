@@ -95,13 +95,17 @@ jobs:
 
       - name: Save the amd64 image to a tar file
         run: |
-          docker save athomasson2/ebook2audiobook --platform linux/amd64 -o athomasson2/ebook2audiobook_amd64.tar
+          docker save athomasson2/ebook2audiobook --platform linux/amd64 -o athomasson2_ebook2audiobook_amd64.tar
 
-      - name: Upload the amd64 image tar file as an artifact
+      - name: Split the tar file into 2GB chunks
+        run: |
+          split -b 2G athomasson_ebook2audiobook_amd64.tar athomasson2_ebook2audiobook_amd64.tar.part
+
+      - name: Upload split tar files as artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: athomasson2/ebook2audiobook_amd64
-          path: athomasson2/ebook2audiobook_amd64.tar
+          name: athomasson2_ebook2audiobook_amd64_parts
+          path: athomasson2_ebook2audiobook_amd64.tar.part*
 #          retention-days: 90
 
 #      - name: Pull Docker Image (arm64 architecture)
