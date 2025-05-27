@@ -91,17 +91,17 @@ jobs:
 
       - name: Pull Docker Image (amd64 architecture)
         run: |
-          docker pull --platform linux/amd64 voicevox/voicevox_engine
+          docker pull --platform linux/amd64 minio/minio
 
       - name: Save the amd64 image to a tar file
         run: |
-          docker save voicevox/voicevox_engine --platform linux/amd64 -o voicevox_voicevox_engine_amd64.tar
+          docker save minio/minio --platform linux/amd64 -o minio_minio_amd64.tar
 
       - name: Upload the amd64 image tar file as an artifact
         uses: actions/upload-artifact@v4
         with:
-          name: voicevox_voicevox_engine_amd64
-          path: voicevox_voicevox_engine_amd64.tar
+          name: minio_minio_amd64
+          path: minio_minio_amd64.tar
 #          retention-days: 90
 
 #      - name: Pull Docker Image (arm64 architecture)
