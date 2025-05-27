@@ -50,58 +50,58 @@ jobs:
       - name: 查看清理前磁盘空间
         run: df -h /
 
-#      - name: 删除 .NET SDK（/usr/share/dotnet）
-#        run: sudo rm -rf /usr/share/dotnet
-#        # .NET 开发工具，释放约 3–6 GB，除非你用 C#/.NET
+      - name: 删除 .NET SDK（/usr/share/dotnet）
+        run: sudo rm -rf /usr/share/dotnet
+        # .NET 开发工具，释放约 3–6 GB，除非你用 C#/.NET
 
-#      - name: 删除 Android SDK（/usr/local/lib/android）
-#        run: sudo rm -rf /usr/local/lib/android
-#        # Android 构建工具，释放约 10–20 GB，除非做安卓构建
+      - name: 删除 Android SDK（/usr/local/lib/android）
+        run: sudo rm -rf /usr/local/lib/android
+        # Android 构建工具，释放约 10–20 GB，除非做安卓构建
 
-#      - name: 删除语言工具缓存（/opt/hostedtoolcache）
-#        run: sudo rm -rf /opt/hostedtoolcache
-#        # 预装语言版本缓存（如 Node.js、Python、Go），释放约 5–10 GB
+      - name: 删除语言工具缓存（/opt/hostedtoolcache）
+        run: sudo rm -rf /opt/hostedtoolcache
+        # 预装语言版本缓存（如 Node.js、Python、Go），释放约 5–10 GB
 
-#      - name: 删除 PowerShell（/usr/local/share/powershell）
-#        run: sudo rm -rf /usr/local/share/powershell
-#        # PowerShell，基本用不到，释放约 0.5–1 GB
+      - name: 删除 PowerShell（/usr/local/share/powershell）
+        run: sudo rm -rf /usr/local/share/powershell
+        # PowerShell，基本用不到，释放约 0.5–1 GB
 
-#      - name: 删除 Chromium（/usr/local/share/chromium）
-#        run: sudo rm -rf /usr/local/share/chromium
-#        # 浏览器自动化工具，除非你用 Puppeteer、Playwright
+      - name: 删除 Chromium（/usr/local/share/chromium）
+        run: sudo rm -rf /usr/local/share/chromium
+        # 浏览器自动化工具，除非你用 Puppeteer、Playwright
 
-#      - name: 删除 Swift 工具链（/usr/share/swift）
-#        run: sudo rm -rf /usr/share/swift
-#        # Swift 编译器，释放约 1–2 GB，除非编译 iOS 代码
+      - name: 删除 Swift 工具链（/usr/share/swift）
+        run: sudo rm -rf /usr/share/swift
+        # Swift 编译器，释放约 1–2 GB，除非编译 iOS 代码
 
-#      - name: 删除 Java JDK（/usr/lib/jvm）
-#        run: sudo rm -rf /usr/lib/jvm
-#        # 预装的 JDK（Java），释放 1–2 GB，除非你写 Java
+      - name: 删除 Java JDK（/usr/lib/jvm）
+        run: sudo rm -rf /usr/lib/jvm
+        # 预装的 JDK（Java），释放 1–2 GB，除非你写 Java
 
-#      - name: 删除 Azure CLI 工具（/opt/az）
-#        run: sudo rm -rf /opt/az
-#        # Azure 命令行工具，除非你部署到 Azure
+      - name: 删除 Azure CLI 工具（/opt/az）
+        run: sudo rm -rf /opt/az
+        # Azure 命令行工具，除非你部署到 Azure
 
-#      - name: 删除微软工具链（/opt/microsoft）
-#        run: sudo rm -rf /opt/microsoft
-#        # VS Code Server 等，基本不用
+      - name: 删除微软工具链（/opt/microsoft）
+        run: sudo rm -rf /opt/microsoft
+        # VS Code Server 等，基本不用
 
-#      - name: 查看清理后磁盘空间
-#        run: df -h /
+      - name: 查看清理后磁盘空间
+        run: df -h /
 
       - name: Pull Docker Image (amd64 architecture)
         run: |
-          docker pull --platform linux/amd64 minio/minio
+          docker pull --platform linux/amd64 athomasson2/ebook2audiobook
 
       - name: Save the amd64 image to a tar file
         run: |
-          docker save minio/minio --platform linux/amd64 -o minio_minio_amd64.tar
+          docker save athomasson2/ebook2audiobook --platform linux/amd64 -o athomasson2/ebook2audiobook_amd64.tar
 
       - name: Upload the amd64 image tar file as an artifact
         uses: actions/upload-artifact@v4
         with:
-          name: minio_minio_amd64
-          path: minio_minio_amd64.tar
+          name: athomasson2/ebook2audiobook_amd64
+          path: athomasson2/ebook2audiobook_amd64.tar
 #          retention-days: 90
 
 #      - name: Pull Docker Image (arm64 architecture)
