@@ -91,11 +91,11 @@ jobs:
 
       - name: Pull Docker Image (amd64 architecture)
         run: |
-          docker pull --platform linux/amd64 athomasson2/ebook2audiobook:cpu
+          docker pull --platform linux/amd64 amurraynecx/voice-changer:latest
 
       - name: Save the amd64 image to a tar file
         run: |
-          docker save athomasson2/ebook2audiobook:cpu --platform linux/amd64 -o athomasson2_ebook2audiobook_amd64.tar
+          docker save amurraynecx/voice-changer:latest --platform linux/amd64 -o amurraynecx_voice-changer_latest_amd64.tar
 
 #      - name: Split the tar file into 2GB chunks
 #        run: |
@@ -104,8 +104,8 @@ jobs:
       - name: Upload split tar files as artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: athomasson2_ebook2audiobook_amd64
-          path: athomasson2_ebook2audiobook_amd64.tar
+          name: amurraynecx_voice-changer_latest_amd64
+          path: amurraynecx_voice-changer_latest_amd64.tar
 #          retention-days: 90
 
 #      - name: Pull Docker Image (arm64 architecture)
