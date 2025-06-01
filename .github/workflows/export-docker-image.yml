@@ -95,6 +95,7 @@ jobs:
 
         # 第1种:保存镜像至文件
       - name: 保存至google网盘
+        run: |
           docker save nickbabelcast/vc-tester | rclone rcat Google:docker-images/nickbabelcast_vc-tester.tar
         # 第2种:某目录或者某镜像保存到网盘
         #sudo tar -cJ /var/lib/docker | rclone rcat Google:docker-images/alpine.tar.xz
