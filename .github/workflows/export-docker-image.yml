@@ -91,12 +91,22 @@ jobs:
 
       - name: Pull Docker Image (amd64 architecture)
         run: |
-          docker pull --platform linux/amd64 nickbabelcast/vc-tester:v1
+         docker pull --platform linux/amd64 nickbabelcast/vc-tester:v1
 
-        # 第1种:保存镜像至文件
-      - name: 保存至google网盘
+      - name: 保存至本地文件
         run: |
-          docker save nickbabelcast/vc-tester:v1 | rclone --bwlimit=4M rcat Google:docker-images/nickbabelcast_vc-tester.tar
+         docker save nickbabelcast/vc-tester:v1 > /tmp/vc-tester.tar
+
+      - name: 分割镜像文件
+        run: |
+         split -b 2G /tmp/vc-tester.tar /tmp/vc-tester-part-
+
+      - name: 上传镜像文件至Google网盘
+        run: |
+         for file in /tmp/vc-tester-part-*; do
+          rclone --bwlimit=4M rcat Google:docker-images/$(basename $file) < $file
+         done
+
         # 第2种:某目录或者某镜像保存到网盘
         #sudo tar -cJ /var/lib/docker | rclone rcat Google:docker-images/alpine.tar.xz
 
