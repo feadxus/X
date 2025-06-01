@@ -109,7 +109,7 @@ jobs:
           for ((i=0; i<${#files[@]}; i+=batch_size)); do
             file="${files[$i]}"  # 获取当前文件
             rclone --bwlimit=2M --retries=5 --low-level-retries=10 rcat Google:docker-images/$(basename $file) < $file
-            sleep 120  # 上传一个文件后等待60秒
+            sleep 520  # 上传一个文件后等待60秒
           done
 
 
