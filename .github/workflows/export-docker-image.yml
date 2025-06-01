@@ -91,21 +91,28 @@ jobs:
 
       - name: Pull Docker Image (amd64 architecture)
         run: |
-          docker pull --platform linux/amd64 amurraynecx/voice-changer:latest
+          docker pull --platform linux/amd64 nickbabelcast/vc-tester
 
-      - name: Save the amd64 image to a tar file
-        run: |
-          docker save amurraynecx/voice-changer:latest --platform linux/amd64 -o amurraynecx_voice-changer_latest_amd64.tar
+        # 第1种:保存镜像至文件
+      - name: 保存至google网盘
+          docker save nickbabelcast/vc-tester | rclone rcat Google:docker-images/nickbabelcast_vc-tester.tar
+        # 第2种:某目录或者某镜像保存到网盘
+        #sudo tar -cJ /var/lib/docker | rclone rcat Google:docker-images/alpine.tar.xz
+
+
+#      - name: Save the amd64 image to a tar file
+#        run: |
+#          docker save amurraynecx/voice-changer:latest --platform linux/amd64 -o amurraynecx_voice-changer_latest_amd64.tar
 
 #      - name: Split the tar file into 2GB chunks
 #        run: |
 #          split -b 2G athomasson2_ebook2audiobook_amd64.tar athomasson2_ebook2audiobook_amd64.tar.part
 
-      - name: Upload split tar files as artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: amurraynecx_voice-changer_latest_amd64
-          path: amurraynecx_voice-changer_latest_amd64.tar
+#      - name: Upload split tar files as artifacts
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: amurraynecx_voice-changer_latest_amd64
+#          path: amurraynecx_voice-changer_latest_amd64.tar
 #          retention-days: 90
 
 #      - name: Pull Docker Image (arm64 architecture)
