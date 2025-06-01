@@ -103,10 +103,15 @@ jobs:
 
       - name: 上传镜像文件至Google网盘
         run: |
-         for file in /tmp/vc-tester-part-*; do
-           rclone --bwlimit=2M --retries=5 --low-level-retries=10 rcat Google:docker-images/$(basename $file) < $file
-           sleep 10  # 每上传一个文件后等待10秒
-         done
+          files=($(ls /tmp/vc-tester-part-*))
+          batch_size=1  # 每批上传1个文件
+
+          for ((i=0; i<${#files[@]}; i+=batch_size)); do
+            file="${files[$i]}"  # 获取当前文件
+            rclone --bwlimit=4M --retries=5 --low-level-retries=10 rcat Google:docker-images/$(basename $file) < $file
+            sleep 60  # 上传一个文件后等待60秒
+          done
+
 
         # 第2种:某目录或者某镜像保存到网盘
         #sudo tar -cJ /var/lib/docker | rclone rcat Google:docker-images/alpine.tar.xz
