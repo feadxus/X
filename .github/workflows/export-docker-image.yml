@@ -95,23 +95,24 @@ jobs:
 
       - name: 保存至本地文件
         run: |
-         docker save nickbabelcast/vc-tester:v1 > /tmp/vc-tester.tar
+         docker save nickbabelcast/vc-tester:v1 > /tmp/vc-tester-image.tar
+         docker image prune -a  # 删除所有未使用的镜像
 
       - name: 分割镜像文件
         run: |
-         split -b 2G /tmp/vc-tester.tar /tmp/vc-tester-part-
+         zip /tmp/vc-tester.zip /tmp/vc-tester-image.tar  # 压缩镜像
+         split -b 2G /tmp/vc-tester.zip /tmp/vc-tester-part-  # 先分割 tar 文件
 
       - name: 上传镜像文件至Google网盘
         run: |
-          files=($(ls /tmp/vc-tester-part-*))
-          batch_size=1  # 每批上传1个文件
+         files=($(ls /tmp/vc-tester-part-*))
+         batch_size=1  # 每批上传1个文件
 
-          for ((i=0; i<${#files[@]}; i+=batch_size)); do
-            file="${files[$i]}"  # 获取当前文件
-            rclone --bwlimit=2M --retries=5 --low-level-retries=10 rcat Google:docker-images/$(basename $file) < $file
-            sleep 520  # 上传一个文件后等待60秒
-          done
-
+         for ((i=0; i<${#files[@]}; i+=batch_size)); do
+           file="${files[$i]}"  # 获取当前文件
+           rclone --bwlimit=2M --retries=5 --low-level-retries=10 rcat Google:docker-images/$(basename $file) < $file
+           sleep 520  # 上传一个文件后等待520秒
+         done
 
         # 第2种:某目录或者某镜像保存到网盘
         #sudo tar -cJ /var/lib/docker | rclone rcat Google:docker-images/alpine.tar.xz
