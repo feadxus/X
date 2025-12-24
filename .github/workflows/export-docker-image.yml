@@ -1,164 +1,63 @@
 name: Free Up Disk Space
 
 on:
-  # 手动触发
   workflow_dispatch:
 
 jobs:
   build:
-    # 指定工作运行的操作系统环境为 Ubuntu 最新版本
     runs-on: ubuntu-latest
 
-    # 定义一系列的步骤，每一步依次执行
     steps:
+      # 1. Checkout 代码库
       - name: Checkout code
         uses: actions/checkout@v3
 
+      # 2. 设置 Docker 环境
       - name: Set up Docker
         uses: docker/setup-buildx-action@v2
 
-      - name: Pull zgip Image
+      # 3. 安装 gzip
+      - name: Pull gzip
         run: |
           sudo apt update
-          sudo apt install gzip
+          sudo apt install -y gzip
 
+      # 4. 安装 rclone
       - name: Install rclone
         run: |
           curl https://rclone.org/install.sh | sudo bash
 
+      # 5. 配置 rclone
       - name: Setup rclone config
         run: |
           mkdir -p ~/.config/rclone
           cp rclone.conf ~/.config/rclone/
 
+      # 6. 调试 rclone 配置
       - name: Debug rclone config
         run: cat ~/.config/rclone/rclone.conf
 
-      - name: Upload Docker Image with tardrive
-        run: |
-          # 确保目标目录存在
-          sudo mkdir -p /home/runner/mount
-          sudo chown $USER:$USER /home/runner/mount
-          sudo chmod 777 /home/runner/mount
-    
-          # 挂载 Google Drive 到 /mount 目录
-          # sudo rclone mount Google: /home/runner/mount --vfs-cache-mode full &
-    
-          # 等待挂载完成，通常可以通过某种方式确认挂载成功
-          sleep 10
-
+      # 7. 查看清理前磁盘空间
       - name: 查看清理前磁盘空间
         run: df -h /
 
-      - name: 删除 .NET SDK（/usr/share/dotnet）
-        run: sudo rm -rf /usr/share/dotnet
-        # .NET 开发工具，释放约 3–6 GB，除非你用 C#/.NET
-
-      - name: 删除 Android SDK（/usr/local/lib/android）
-        run: sudo rm -rf /usr/local/lib/android
-        # Android 构建工具，释放约 10–20 GB，除非做安卓构建
-
-      - name: 删除语言工具缓存（/opt/hostedtoolcache）
-        run: sudo rm -rf /opt/hostedtoolcache
-        # 预装语言版本缓存（如 Node.js、Python、Go），释放约 5–10 GB
-
-      - name: 删除 PowerShell（/usr/local/share/powershell）
-        run: sudo rm -rf /usr/local/share/powershell
-        # PowerShell，基本用不到，释放约 0.5–1 GB
-
-      - name: 删除 Chromium（/usr/local/share/chromium）
-        run: sudo rm -rf /usr/local/share/chromium
-        # 浏览器自动化工具，除非你用 Puppeteer、Playwright
-
-      - name: 删除 Swift 工具链（/usr/share/swift）
-        run: sudo rm -rf /usr/share/swift
-        # Swift 编译器，释放约 1–2 GB，除非编译 iOS 代码
-
-      - name: 删除 Java JDK（/usr/lib/jvm）
-        run: sudo rm -rf /usr/lib/jvm
-        # 预装的 JDK（Java），释放 1–2 GB，除非你写 Java
-
-      - name: 删除 Azure CLI 工具（/opt/az）
-        run: sudo rm -rf /opt/az
-        # Azure 命令行工具，除非你部署到 Azure
-
-      - name: 删除微软工具链（/opt/microsoft）
-        run: sudo rm -rf /opt/microsoft
-        # VS Code Server 等，基本不用
-
-      - name: 查看清理后磁盘空间
-        run: df -h /
-
-      - name: Pull Docker Image (amd64 architecture)
+      # 8. 拉取 Docker 镜像（如果需要）
+      - name: Pull Docker Image (amd64)
         run: |
-         docker pull --platform linux/amd64 nickbabelcast/vc-tester:v1
+          docker pull --platform linux/amd64 xxnuo/mtranserver:latest
 
-      - name: 保存至本地文件
+      # 9. 下载指定文件
+      - name: Download file
         run: |
-         docker save nickbabelcast/vc-tester:v1 > /tmp/vc-tester-image.tar
-         docker image prune -a  # 删除所有未使用的镜像
+          wget -O myfile.txt "https://sub.id9.cc/sub?target=clash&url=https%3A%2F%2Fraw.githubusercontent.com%2Febrasha%2Ffree-v2ray-public-list%2Frefs%2Fheads%2Fmain%2Fall_extracted_configs.txt&insert=false&config=https%3A%2F%2Fraw.githubusercontent.com%2FACL4SSR%2FACL4SSR%2Fmaster%2FClash%2Fconfig%2FACL4SSR_Online.ini&emoji=true&list=false&tfo=false&scv=true&fdn=false&expand=true&sort=false&new_name=true"
+          ls -lh myfile.txt  # 查看下载文件的大小
 
-      - name: 分割镜像文件
+      # 10. 上传文件到 Google Drive
+      - name: Upload file to Google Drive
         run: |
-         zip /tmp/vc-tester.zip /tmp/vc-tester-image.tar  # 压缩镜像
-         split -b 2G /tmp/vc-tester.zip /tmp/vc-tester-part-  # 先分割 tar 文件
-
-      - name: 上传镜像文件至Google网盘
-        run: |
-         files=($(ls /tmp/vc-tester-part-*))
-         batch_size=1  # 每批上传1个文件
-
-         for ((i=0; i<${#files[@]}; i+=batch_size)); do
-           file="${files[$i]}"  # 获取当前文件
-           rclone --bwlimit=2M --retries=5 --low-level-retries=10 rcat Google:docker-images/$(basename $file) < $file
-           sleep 520  # 上传一个文件后等待520秒
-         done
-
-        # 第2种:某目录或者某镜像保存到网盘
-        #sudo tar -cJ /var/lib/docker | rclone rcat Google:docker-images/alpine.tar.xz
-
-
-#      - name: Save the amd64 image to a tar file
-#        run: |
-#          docker save amurraynecx/voice-changer:latest --platform linux/amd64 -o amurraynecx_voice-changer_latest_amd64.tar
-
-#      - name: Split the tar file into 2GB chunks
-#        run: |
-#          split -b 2G athomasson2_ebook2audiobook_amd64.tar athomasson2_ebook2audiobook_amd64.tar.part
-
-#      - name: Upload split tar files as artifacts
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: amurraynecx_voice-changer_latest_amd64
-#          path: amurraynecx_voice-changer_latest_amd64.tar
-#          retention-days: 90
-
-#      - name: Pull Docker Image (arm64 architecture)
-#        run: |
-#          docker pull --platform linux/arm64 quay.io/prometheuscommunity/postgres-exporter
-
-#      - name: Save the arm64 image to a tar file
-#        run: |
-#          docker save quay.io/prometheuscommunity/postgres-exporter -o postgres-exporter_arm64.tar
-
-#      - name: Upload the arm64 image tar file as an artifact
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: postgres-exporter-image-arm64
-#          path: postgres-exporter_arm64.tar
-#          retention-days: 90
-
-#      - name: 克隆 git 项目
-#        run: |
-#          git clone https://github.com/cyuquan8/thermal_signature_drone_detection.git
-
-#      - name: 压缩 git 项目
-#        run: |
-#          tar -czf thermal_signature_drone_detection.tar.gz thermal_signature_drone_detection/
-
-#      - name: 上传 git 项目到 actions
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: thermal_signature_drone_detection
-#          path: thermal_signature_drone_detection.tar.gz
-#          retention-days: 90
+          # 可选创建目录
+          rclone mkdir Google:/backup || true
+          # 上传文件
+          rclone copy myfile.txt Google:/backup/
+          # 查看上传结果
+          rclone lsf Google:/backup/
