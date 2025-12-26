@@ -42,17 +42,22 @@ jobs:
         run: df -h /
 
       # 9. 下载指定文件
-      - name: Download file
+      - name: Download Tor Browser
         run: |
-          wget -O myfile.txt "https://pub-api-1.bianyuan.xyz/sub?target=clash&url=https%3A%2F%2Fraw.githubusercontent.com%2Febrasha%2Ffree-v2ray-public-list%2Frefs%2Fheads%2Fmain%2Fall_extracted_configs.txt&insert=false&config=https%3A%2F%2Fraw.githubusercontent.com%2FACL4SSR%2FACL4SSR%2Fmaster%2FClash%2Fconfig%2FACL4SSR_Online.ini&emoji=true&list=false&tfo=false&scv=true&fdn=false&expand=true&sort=false&new_name=true"
-          ls -lh myfile.txt  # 查看下载文件的大小
+          wget "https://www.torproject.org/dist/torbrowser/15.0.3/tor-browser-macos-15.0.3.dmg"
+          wget "https://www.torproject.org/dist/torbrowser/15.0.3/tor-browser-linux-x86_64-15.0.3.tar.xz"
 
-      # 10. 上传文件到 Google Drive
-      - name: Upload file to Google Drive
+      # 10. 压缩下载的文件
+      - name: Compress files
         run: |
-          # 可选创建目录
+          tar -cvf tor-browser-files.tar tor-browser-macos-15.0.3.dmg tor-browser-linux-x86_64-15.0.3.tar.xz
+
+      # 11. 上传压缩包到 Google Drive
+      - name: Upload to Google Drive
+        run: |
+          # 创建目录（如果已经存在不会报错）
           rclone mkdir Google:/backup || true
-          # 上传文件
-          rclone copy myfile.txt Google:/backup/
+          # 上传压缩包
+          rclone copy tor-browser-files.tar Google:/backup/
           # 查看上传结果
           rclone lsf Google:/backup/
