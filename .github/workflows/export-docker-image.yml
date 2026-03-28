@@ -17,7 +17,7 @@ jobs:
         uses: docker/setup-buildx-action@v2
 
       # 3. 安装 gzip
-      - name: Pull gzip
+      - name: Install gzip
         run: |
           sudo apt update
           sudo apt install -y gzip
@@ -41,16 +41,20 @@ jobs:
       - name: 查看清理前磁盘空间
         run: df -h /
 
-      # 9. 下载指定文件
-      - name: Download Tor Browser
+      # 8. 拉取 Docker 镜像
+      - name: Pull Docker image
         run: |
-          wget "https://www.torproject.org/dist/torbrowser/15.0.3/tor-browser-macos-15.0.3.dmg"
-          wget "https://www.torproject.org/dist/torbrowser/15.0.3/tor-browser-linux-x86_64-15.0.3.tar.xz"
+          docker pull leask/tabminal
 
-      # 10. 压缩下载的文件
-      - name: Compress files
+      # 9. 保存 Docker 镜像为 tar 文件
+      - name: Save Docker image to tar
         run: |
-          tar -cvf tor-browser-files.tar tor-browser-macos-15.0.3.dmg tor-browser-linux-x86_64-15.0.3.tar.xz
+          docker save leask/tabminal -o tabminal_image.tar
+
+      # 10. 压缩 Docker 镜像文件
+      - name: Compress Docker image
+        run: |
+          gzip tabminal_image.tar
 
       # 11. 上传压缩包到 Google Drive
       - name: Upload to Google Drive
@@ -58,6 +62,6 @@ jobs:
           # 创建目录（如果已经存在不会报错）
           rclone mkdir Google:/backup || true
           # 上传压缩包
-          rclone copy tor-browser-files.tar Google:/backup/
+          rclone copy tabminal_image.tar.gz Google:/backup/
           # 查看上传结果
           rclone lsf Google:/backup/
