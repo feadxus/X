@@ -1,4 +1,4 @@
-name: Free Up Disk Space
+name: Download and Backup Script
 
 on:
   workflow_dispatch:
@@ -12,56 +12,64 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2. 设置 Docker 环境
+      # 2. 设置 Docker 环境 (如果后续不需要 Docker 编译，这一步可以删除)
       - name: Set up Docker
         uses: docker/setup-buildx-action@v2
 
-      # 3. 安装 gzip
-      - name: Install gzip
+      # 3. 安装必要的工具
+      - name: Install Tools
         run: |
           sudo apt update
-          sudo apt install -y gzip
+          sudo apt install -y gzip curl tar
 
       # 4. 安装 rclone
       - name: Install rclone
         run: |
           curl https://rclone.org/install.sh | sudo bash
 
-      # 5. 配置 rclone
+      # 5. 配置 rclone (确保你的仓库里有 rclone.conf 文件)
       - name: Setup rclone config
         run: |
           mkdir -p ~/.config/rclone
-          cp rclone.conf ~/.config/rclone/
+          # 假设你的 rclone.conf 存在于仓库根目录
+          if [ -f rclone.conf ]; then
+            cp rclone.conf ~/.config/rclone/
+          else
+            echo "Error: rclone.conf not found in repository!"
+            exit 1
+          fi
 
-      # 6. 调试 rclone 配置
-      - name: Debug rclone config
-        run: cat ~/.config/rclone/rclone.conf
-
-      # 7. 查看清理前磁盘空间
-      - name: 查看清理前磁盘空间
+      # 6. 查看磁盘空间
+      - name: Check disk space
         run: df -h /
 
-      # 8. 拉取 Docker 镜像
-      - name: Pull Docker image
+      # 9. 下载指定的脚本 (使用 curl 替代 wget 确保获取原始文件)
+      - name: Download Claude Install Script
         run: |
-          docker pull leask/tabminal
+          # 下载脚本并保存为 install.sh
+          # 使用 -L 处理重定向，-f 报错停止
+          curl -fsSL "https://claude.ai" -o install.sh
+          
+          # 简单校验：如果下载的是 HTML 网页则报错退出，防止上传垃圾文件
+          if grep -q "<!DOCTYPE html>" install.sh; then
+            echo "Error: Downloaded file is a webpage, not a script!"
+            exit 1
+          fi
+          echo "Download successful."
 
-      # 9. 保存 Docker 镜像为 tar 文件
-      - name: Save Docker image to tar
+      # 10. 压缩下载的文件
+      - name: Compress files
         run: |
-          docker save leask/tabminal -o tabminal_image.tar
-
-      # 10. 压缩 Docker 镜像文件
-      - name: Compress Docker image
-        run: |
-          gzip tabminal_image.tar
+          # 将脚本压缩为 tar.gz 格式
+          tar -czvf claude-script-backup.tar.gz install.sh
 
       # 11. 上传压缩包到 Google Drive
       - name: Upload to Google Drive
         run: |
-          # 创建目录（如果已经存在不会报错）
+          # 确保 rclone 配置中的名称是 'Google'
+          # 创建目录
           rclone mkdir Google:/backup || true
           # 上传压缩包
-          rclone copy tabminal_image.tar.gz Google:/backup/
+          rclone copy claude-script-backup.tar.gz Google:/backup/
           # 查看上传结果
           rclone lsf Google:/backup/
