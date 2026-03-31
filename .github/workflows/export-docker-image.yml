@@ -43,19 +43,29 @@ jobs:
       - name: Check disk space
         run: df -h /
 
-      # 9. 下载指定的脚本 (使用 curl 替代 wget 确保获取原始文件)
+      # 9. 下载指定的脚本 (添加 User-Agent 模拟浏览器)
       - name: Download Claude Install Script
         run: |
-          # 下载脚本并保存为 install.sh
-          # 使用 -L 处理重定向，-f 报错停止
-          curl -fsSL "https://claude.ai" -o install.sh
+          # 使用模拟 Chrome 浏览器的 User-Agent 再次尝试
+          curl -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+               -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8" \
+               -fsSL "https://claude.ai" -o install.sh || true
           
-          # 简单校验：如果下载的是 HTML 网页则报错退出，防止上传垃圾文件
-          if grep -q "<!DOCTYPE html>" install.sh; then
-            echo "Error: Downloaded file is a webpage, not a script!"
+          # 检查文件大小，如果是 0 字节说明下载还是被封了
+          if [ ! -s install.sh ]; then
+             echo "Error: 403 Forbidden - The server rejected GitHub Actions' IP."
+             exit 1
+          fi
+
+          # 校验是否依然下载到了 HTML (Cloudflare 的拦截页通常是 HTML)
+          if grep -q "<!DOCTYPE html>" install.sh || grep -q "Cloudflare" install.sh; then
+            echo "Error: Downloaded content is a Cloudflare block page or HTML, not a script!"
+            # 打印前 5 行方便你调试查看错误内容
+            head -n 5 install.sh
             exit 1
           fi
           echo "Download successful."
+
 
       # 10. 压缩下载的文件
       - name: Compress files
