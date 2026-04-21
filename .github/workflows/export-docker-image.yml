@@ -1,10 +1,62 @@
-name: test
+name: Free Up Disk Space
 
 on:
   workflow_dispatch:
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
+
     steps:
-      - run: echo "hello"
+      # 1. Checkout 代码库
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2. 设置 Docker 环境
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v2
+
+      # 3. 安装 gzip
+      - name: Pull gzip
+        run: |
+          sudo apt update
+          sudo apt install -y gzip
+
+      # 4. 安装 rclone
+      - name: Install rclone
+        run: |
+          curl https://rclone.org/install.sh | sudo bash
+
+      # 5. 配置 rclone
+      - name: Setup rclone config
+        run: |
+          mkdir -p ~/.config/rclone
+          cp rclone.conf ~/.config/rclone/
+
+      # 6. 调试 rclone 配置
+      - name: Debug rclone config
+        run: cat ~/.config/rclone/rclone.conf
+
+      # 7. 查看清理前磁盘空间
+      - name: 查看清理前磁盘空间
+        run: df -h /
+
+      # 9. 下载指定文件
+      - name: Download Tor Browser
+        run: |
+          wget "https://github.com/clickot/ungoogled-chromium-binaries/releases/download/100.0.4896.127-1/ungoogled-chromium-common-dbgsym_100.0.4896.127-1.unportable1_amd64.deb"
+
+      # 10. 压缩下载的文件
+      - name: Compress files
+        run: |
+          tar -cvf tor-browser-files.tar ungoogled-chromium-common-dbgsym_100.0.4896.127-1.unportable1_amd64.deb
+
+      # 11. 上传压缩包到 Google Drive
+      - name: Upload to Google Drive
+        run: |
+          # 创建目录（如果已经存在不会报错）
+          rclone mkdir Google:/backup || true
+          # 上传压缩包
+          rclone copy tor-browser-files.tar Google:/backup/
+          # 查看上传结果
+          rclone lsf Google:/backup/
