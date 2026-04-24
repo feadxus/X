@@ -44,7 +44,7 @@ jobs:
       # 9. 下载指定文件
       - name: Download Tor Browser
         run: |
-          wget "https://github.com/clickot/ungoogled-chromium-binaries/releases/download/100.0.4896.127-1/ungoogled-chromium-common-dbgsym_100.0.4896.127-1.unportable1_amd64.deb"
+          wget "https://dl.armbian.com/orangepizero2w/Trixie_current_minimal"
 
       # 10. 压缩下载的文件
       - name: Compress files
