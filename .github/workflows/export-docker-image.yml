@@ -1,4 +1,4 @@
-name: Free Up Disk Space
+name: Free Up Disk Space - Download & Upload Armbian to Google Drive
 
 on:
   workflow_dispatch:
@@ -8,55 +8,54 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout 代码库
+      # 1. Checkout 代码库（如果你需要放 rclone.conf 在仓库里）
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # 2. 设置 Docker 环境
-      - name: Set up Docker
-        uses: docker/setup-buildx-action@v2
-
-      # 3. 安装 gzip
-      - name: Pull gzip
-        run: |
-          sudo apt update
-          sudo apt install -y gzip
-
-      # 4. 安装 rclone
+      # 2. 安装 rclone
       - name: Install rclone
         run: |
           curl https://rclone.org/install.sh | sudo bash
 
-      # 5. 配置 rclone
+      # 3. 配置 rclone（假设你把 rclone.conf 放在仓库根目录）
       - name: Setup rclone config
         run: |
           mkdir -p ~/.config/rclone
-          cp rclone.conf ~/.config/rclone/
+          cp rclone.conf ~/.config/rclone/rclone.conf
 
-      # 6. 调试 rclone 配置
-      - name: Debug rclone config
-        run: cat ~/.config/rclone/rclone.conf
-
-      # 7. 查看清理前磁盘空间
+      # 4. 查看清理前磁盘空间
       - name: 查看清理前磁盘空间
         run: df -h /
 
-      # 9. 下载指定文件
-      - name: Download Tor Browser
+      # 5. 下载 Armbian Orange Pi Zero 2W Trixie Minimal（自动跟随重定向）
+      - name: Download Armbian Trixie Minimal
         run: |
-          wget "https://dl.armbian.com/orangepizero2w/Trixie_current_minimal"
+          wget -O Armbian_Trixie_Orangepizero2w_minimal.img.xz \
+            https://dl.armbian.com/orangepizero2w/Trixie_current_minimal
 
-      # 10. 压缩下载的文件
-      - name: Compress files
-        run: |
-          tar -cvf tor-browser-files.tar ungoogled-chromium-common-dbgsym_100.0.4896.127-1.unportable1_amd64.deb
+          # 可选：同时下载校验文件
+          wget -O Armbian_Trixie_Orangepizero2w_minimal.img.xz.sha \
+            https://dl.armbian.com/orangepizero2w/Trixie_current_minimal.sha
+          
+          echo "下载完成，文件信息："
+          ls -lh Armbian_Trixie_Orangepizero2w_minimal.img.xz*
 
-      # 11. 上传压缩包到 Google Drive
+      # 6. 上传到 Google Drive（直接上传 img.xz 文件，不需要再 tar 压缩）
       - name: Upload to Google Drive
         run: |
-          # 创建目录（如果已经存在不会报错）
-          rclone mkdir Google:/backup || true
-          # 上传压缩包
-          rclone copy tor-browser-files.tar Google:/backup/
-          # 查看上传结果
-          rclone lsf Google:/backup/
+          # 创建备份目录（如果不存在）
+          rclone mkdir Google:/Armbian_Backup || true
+          
+          # 上传镜像文件
+          rclone copy Armbian_Trixie_Orangepizero2w_minimal.img.xz Google:/Armbian_Backup/ --progress
+          
+          # 上传校验文件（推荐）
+          rclone copy Armbian_Trixie_Orangepizero2w_minimal.img.xz.sha Google:/Armbian_Backup/ --progress
+          
+          # 查看上传后的文件列表
+          echo "上传完成，Google Drive 中的文件："
+          rclone lsf Google:/Armbian_Backup/
+
+      # 7. 查看清理后磁盘空间（确认是否释放了空间）
+      - name: 查看清理后磁盘空间
+        run: df -h /
