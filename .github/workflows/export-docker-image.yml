@@ -1,61 +1,55 @@
-name: Free Up Disk Space - Download & Upload Armbian to Google Drive
+name: Pack and Upload node_modules to Google Drive
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # 允许你手动点击运行
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout 代码库（如果你需要放 rclone.conf 在仓库里）
+      # 1. 检出仓库中的配置文件（rclone.conf, package.json 等）
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. 安装 rclone
+      # 2. 安装 rclone 工具
       - name: Install rclone
         run: |
           curl https://rclone.org/install.sh | sudo bash
 
-      # 3. 配置 rclone（假设你把 rclone.conf 放在仓库根目录）
+      # 3. 部署 rclone 授权凭证
       - name: Setup rclone config
         run: |
           mkdir -p ~/.config/rclone
           cp rclone.conf ~/.config/rclone/rclone.conf
 
-      # 4. 查看清理前磁盘空间
-      - name: 查看清理前磁盘空间
-        run: df -h /
+      # 4. 配置纯净的 Node.js 20 环境（匹配你容器的版本）
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-      # 5. 下载 Armbian Orange Pi Zero 2W Trixie Minimal（自动跟随重定向）
-      - name: Download Armbian Trixie Minimal
+      # 5. 微软海外纯净大宽带秒速安装依赖
+      - name: Install dependencies via npm ci
         run: |
-          wget -O Armbian_Trixie_Orangepizero2w_minimal.img.xz \
-            https://dl.armbian.com/orangepizero2w/Trixie_current_minimal
+          npm ci
 
-          # 可选：同时下载校验文件
-          wget -O Armbian_Trixie_Orangepizero2w_minimal.img.xz.sha \
-            https://dl.armbian.com/orangepizero2w/Trixie_current_minimal.sha
-          
-          echo "下载完成，文件信息："
-          ls -lh Armbian_Trixie_Orangepizero2w_minimal.img.xz*
+      # 6. 把下载好的 node_modules 文件夹原地打包（防丢、防损坏）
+      - name: Zip node_modules
+        run: |
+          tar -czf node_modules.tar.gz node_modules
+          echo "压缩完成，文件大小如下："
+          ls -lh node_modules.tar.gz
 
-      # 6. 上传到 Google Drive（直接上传 img.xz 文件，不需要再 tar 压缩）
+      # 7. 通过 rclone 强行推送到你的 Google Drive
       - name: Upload to Google Drive
         run: |
-          # 创建备份目录（如果不存在）
-          rclone mkdir Google:/Armbian_Backup || true
+          # 创建存放备份的目录
+          rclone mkdir Google:/Node_Deps_Backup || true
           
-          # 上传镜像文件
-          rclone copy Armbian_Trixie_Orangepizero2w_minimal.img.xz Google:/Armbian_Backup/ --progress
+          # 搬运压缩包到网盘
+          rclone copy node_modules.tar.gz Google:/Node_Deps_Backup/ --progress
           
-          # 上传校验文件（推荐）
-          rclone copy Armbian_Trixie_Orangepizero2w_minimal.img.xz.sha Google:/Armbian_Backup/ --progress
-          
-          # 查看上传后的文件列表
-          echo "上传完成，Google Drive 中的文件："
-          rclone lsf Google:/Armbian_Backup/
-
-      # 7. 查看清理后磁盘空间（确认是否释放了空间）
-      - name: 查看清理后磁盘空间
-        run: df -h /
+          # 打印网盘里的文件列表，确认安全送达
+          echo "✅ 搬运成功！网盘文件清单："
+          rclone lsf Google:/Node_Deps_Backup/
