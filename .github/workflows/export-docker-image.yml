@@ -54,7 +54,7 @@ jobs:
       # 8️⃣ 安装依赖
       - name: 🚚 Install Backend Dependencies
         run: |
-          composer install --no-interaction --no-dev --optimize-autoloader
+          composer install --no-interaction --no-dev --optimize-autoloader --no-scripts
 
       # 8️⃣ 把下载好的 vendor 文件夹原地打包
       - name: 📦 Zip vendor
