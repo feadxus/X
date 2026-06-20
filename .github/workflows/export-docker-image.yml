@@ -44,7 +44,7 @@ jobs:
 
 
       # ================= 打包下载后端依赖包部分 =================
-      # 7️⃣ 安装指定 Node.js Setup PHP Environment 版本
+      # 7️⃣ 安装指定 Setup PHP Environment 版本
       - name: 🐘 Setup PHP Environment
         uses: shivammathur/setup-php@v2
         with:
