@@ -23,18 +23,58 @@ jobs:
           mkdir -p ~/.config/rclone
           cp rclone.conf ~/.config/rclone/rclone.conf
 
-      # 下载 deb 包
-      - name: Download TimescaleDB deb
-        run: |
-          wget -O timescaledb.deb \
-          "https://packagecloud.io/timescale/timescaledb/packages/debian/bullseye/timescaledb-2-2.18.1-postgresql-16_2.18.1~debian11_amd64.deb/download.deb?distro_version_id=207"
+      # ================= 打包下载前端依赖包部分 =================
+      # 4️⃣ 安装指定 Node.js 20.19.2 版本
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.16.0'                       # 💡 老师温馨提示:请确保这里的版本和你的 Docker 容器 Node 版本一致!,通过访问镜像后,执行: node -v 获得版本号
 
-      - name: Check file
+      # 5️⃣ 安装依赖
+      - name: Install dependencies via npm ci
         run: |
-          ls -lh timescaledb.deb
+          npm install
 
+      # 6️⃣ 把下载好的 node_modules 文件夹原地打包
+      - name: Zip node_modules
+        run: |
+          tar -czf node_modules.tar.gz node_modules
+          echo "压缩完成,文件大小如下:"
+          ls -lh node_modules.tar.gz
+
+
+      # ================= 打包下载后端依赖包部分 =================
+      # 7️⃣ 安装指定 Setup PHP Environment 版本
+      - name: 🐘 Setup PHP Environment
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'                            # 💡 老师温馨提示:请确保这里的版本和你的 Docker 容器 PHP 版本一致!,通过此命令查看:cat composer.json | grep '"php"'
+          extensions: mbstring, xml, ctype, iconv, json # Laravel 常用基础扩展
+
+      # 8️⃣ 安装依赖
+      - name: 🚚 Install Backend Dependencies
+        run: |
+          # 使用此命令下载依赖即可,不需要修改❗️
+          composer install --no-interaction --no-scripts --optimize-autoloader
+
+      # 9️⃣ 把下载好的 vendor 文件夹原地打包
+      - name: 📦 Zip vendor
+        run: |
+          tar -czf vendor.tar.gz vendor
+          echo "后端压缩完成,文件大小如下:"
+          ls -lh vendor.tar.gz
+
+
+      # 1️⃣0️⃣ 通过 rclone 强行推送到你的 Google Drive
       - name: Upload to Google Drive
         run: |
+          # 创建存放备份的目录
           rclone mkdir Google:/Node_Deps_Backup || true
-          rclone copy timescaledb.deb Google:/Node_Deps_Backup/ --progress
+          
+          # 搬运压缩包到网盘
+          rclone copy node_modules.tar.gz Google:/Node_Deps_Backup/ --progress
+          rclone copy vendor.tar.gz Google:/Node_Deps_Backup/ --progress
+          
+          # 打印网盘里的文件列表,确认安全送达
+          echo "✅ 搬运成功!网盘文件清单:"
           rclone lsf Google:/Node_Deps_Backup/
