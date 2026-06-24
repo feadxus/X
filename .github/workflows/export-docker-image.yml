@@ -19,9 +19,11 @@ jobs:
 
       # 3️⃣ 部署 rclone 授权凭证
       - name: Setup rclone config
+        env:
+          RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FSXEDX_DRIVE }}
         run: |
           mkdir -p ~/.config/rclone
-          echo "${{ secrets.GOOGLE_FSXEDX_DRIVE }}" > ~/.config/rclone/rclone.conf
+          echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
 
       # ================= 打包下载前端依赖包部分 =================
       # 4️⃣ 安装指定 Node.js 20.19.2 版本
