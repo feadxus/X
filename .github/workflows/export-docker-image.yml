@@ -21,7 +21,7 @@ jobs:
       - name: Setup rclone config
         run: |
           mkdir -p ~/.config/rclone
-          cp rclone.conf ~/.config/rclone/rclone.conf
+          echo "${{ secrets.GOOGLE_FSXEDX_DRIVE }}" > ~/.config/rclone/rclone.conf
 
       # ================= 打包下载前端依赖包部分 =================
       # 4️⃣ 安装指定 Node.js 20.19.2 版本
