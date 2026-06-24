@@ -28,7 +28,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24.16.0'                       # 💡 老师温馨提示:请确保这里的版本和你的 Docker 容器 Node 版本一致!,通过访问镜像后,执行: node -v 获得版本号
+          node-version: '22'                       # 💡 老师温馨提示:请确保这里的版本和你的 Docker 容器 Node 版本一致!,通过访问镜像后,执行: node -v 获得版本号
 
       # 5️⃣ 安装依赖
       - name: Install dependencies via npm ci
