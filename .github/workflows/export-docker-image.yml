@@ -48,7 +48,7 @@ jobs:
       - name: 🐘 Setup PHP Environment
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'                            # 💡 老师温馨提示:请确保这里的版本和你的 Docker 容器 PHP 版本一致!,通过此命令查看:cat composer.json | grep '"php"'
+          php-version: '8.4'                            # 💡 老师温馨提示:请确保这里的版本和你的 Docker 容器 PHP 版本一致!,通过此命令查看:cat composer.json | grep '"php"'
           extensions: mbstring, xml, ctype, iconv, json # Laravel 常用基础扩展
 
       # 8️⃣ 安装依赖
