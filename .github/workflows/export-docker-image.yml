@@ -1,23 +1,28 @@
-name: Pack and Upload node_modules to Google Drive
+name: Free Up Disk Space
 
 on:
-  workflow_dispatch: # 允许你手动点击运行
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ 检出仓库中的配置文件（rclone.conf, package.json 等）
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      # 2️⃣ 安装 rclone 工具
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v2
+
+      - name: Pull gzip
+        run: |
+          sudo apt update
+          sudo apt install -y gzip
+
       - name: Install rclone
         run: |
           curl https://rclone.org/install.sh | sudo bash
 
-      # 3️⃣ 部署 rclone 授权凭证
       - name: Setup rclone config
         env:
           RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FSXEDX_DRIVE }}
@@ -25,58 +30,57 @@ jobs:
           mkdir -p ~/.config/rclone
           echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
 
-      # ================= 打包下载前端依赖包部分 =================
-      # 4️⃣ 安装指定 Node.js 20.19.2 版本
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'                       # 💡 老师温馨提示:请确保这里的版本和你的 Docker 容器 Node 版本一致!,通过访问镜像后,执行: node -v 获得版本号
+      - name: Debug rclone config
+        run: cat ~/.config/rclone/rclone.conf
 
-      # 5️⃣ 安装依赖
-      - name: Install dependencies via npm ci
+      - name: 查看清理前磁盘空间
+        run: df -h /
+
+      - name: 删除 .NET SDK(/usr/share/dotnet)
+        run: sudo rm -rf /usr/share/dotnet
+      - name: 删除 Android SDK(/usr/local/lib/android)
+        run: sudo rm -rf /usr/local/lib/android
+      - name: 删除语言工具缓存(/opt/hostedtoolcache)
+        run: sudo rm -rf /opt/hostedtoolcache
+      - name: 删除 PowerShell(/usr/local/share/powershell)
+        run: sudo rm -rf /usr/local/share/powershell
+      - name: 删除 Chromium(/usr/local/share/chromium)
+        run: sudo rm -rf /usr/local/share/chromium
+      - name: 删除 Swift 工具链(/usr/share/swift)
+        run: sudo rm -rf /usr/share/swift
+      - name: 删除 Java JDK(/usr/lib/jvm)
+        run: sudo rm -rf /usr/lib/jvm
+      - name: 删除 Azure CLI 工具(/opt/az)
+        run: sudo rm -rf /opt/az
+      - name: 删除微软工具链(/opt/microsoft)
+        run: sudo rm -rf /opt/microsoft
+
+      - name: 查看清理后磁盘空间
+        run: df -h /
+
+      - name: Pull Docker Image (amd64)
         run: |
-          npm install
+          docker pull --platform linux/amd64 axllent/mailpit:latest
+          docker pull --platform linux/amd64 redis:8.4.0
+          docker pull --platform linux/amd64 maplibre/martin:latest
+          docker pull --platform linux/amd64 protomaps/go-pmtiles:latest
 
-      # 6️⃣ 把下载好的 node_modules 文件夹原地打包
-      - name: Zip node_modules
+      - name: Save Docker Image to tar
         run: |
-          tar -czf node_modules.tar.gz node_modules
-          echo "压缩完成,文件大小如下:"
-          ls -lh node_modules.tar.gz
+          docker save \
+            axllent/mailpit:latest \
+            redis:8.4.0 \
+            maplibre/martin:latest \
+            protomaps/go-pmtiles:latest \
+            --platform linux/amd64 -o all_images.tar
+          tar -c all_images.tar | xz -T0 -9e > images.tar.xz
 
 
-      # ================= 打包下载后端依赖包部分 =================
-      # 7️⃣ 安装指定 Setup PHP Environment 版本
-      - name: 🐘 Setup PHP Environment
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.4'                            # 💡 老师温馨提示:请确保这里的版本和你的 Docker 容器 PHP 版本一致!,通过此命令查看:cat composer.json | grep '"php"'
-          extensions: mbstring, xml, ctype, iconv, json # Laravel 常用基础扩展
-
-      # 8️⃣ 安装依赖
-      - name: 🚚 Install Backend Dependencies
+      - name: Upload tar to Google Drive
         run: |
-          # 使用此命令下载依赖即可,不需要修改❗️
-          composer install --no-interaction --no-scripts --optimize-autoloader
-
-      # 9️⃣ 把下载好的 vendor 文件夹原地打包
-      - name: 📦 Zip vendor
-        run: |
-          tar -czf vendor.tar.gz vendor
-          echo "后端压缩完成,文件大小如下:"
-          ls -lh vendor.tar.gz
-
-
-      # 1️⃣0️⃣ 通过 rclone 强行推送到你的 Google Drive
-      - name: Upload to Google Drive
-        run: |
-          # 创建存放备份的目录
-          rclone mkdir Google:/Node_Deps_Backup || true
-          
-          # 搬运压缩包到网盘
-          rclone copy node_modules.tar.gz Google:/Node_Deps_Backup/ --progress
-          rclone copy vendor.tar.gz Google:/Node_Deps_Backup/ --progress
-          
-          # 打印网盘里的文件列表,确认安全送达
-          echo "✅ 搬运成功!网盘文件清单:"
-          rclone lsf Google:/Node_Deps_Backup/
+          # 可选创建目录
+          rclone mkdir Google:/backup || true
+          # 上传 tar 文件
+          rclone copy images.tar.xz Google:/backup/
+          # 查看上传结果
+          rclone lsf Google:/backup/
