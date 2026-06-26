@@ -60,20 +60,14 @@ jobs:
 
       - name: Pull Docker Image (amd64)
         run: |
-          docker pull --platform linux/amd64 axllent/mailpit:latest
-          docker pull --platform linux/amd64 redis:8.4.0
-          docker pull --platform linux/amd64 maplibre/martin:latest
-          docker pull --platform linux/amd64 protomaps/go-pmtiles:latest
+          docker pull --platform linux/amd64 ghcr.io/maplibre/martin:latest
 
       - name: Save Docker Image to tar
         run: |
           docker save \
-            axllent/mailpit:latest \
-            redis:8.4.0 \
-            maplibre/martin:latest \
-            protomaps/go-pmtiles:latest \
+            ghcr.io/maplibre/martin:latest \
             --platform linux/amd64 -o all_images.tar
-          tar -c all_images.tar | xz -T0 -9e > images.tar.xz
+          tar -c all_images.tar | xz -T0 -9e > images2.tar.xz
 
 
       - name: Upload tar to Google Drive
@@ -81,6 +75,6 @@ jobs:
           # 可选创建目录
           rclone mkdir Google:/backup || true
           # 上传 tar 文件
-          rclone copy images.tar.xz Google:/backup/
+          rclone copy images2.tar.xz Google:/backup/
           # 查看上传结果
           rclone lsf Google:/backup/
