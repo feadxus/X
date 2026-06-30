@@ -60,14 +60,14 @@ jobs:
 
       - name: Pull Docker Image (amd64)
         run: |
-          docker pull --platform linux/amd64 ghcr.io/maplibre/martin:latest
+          docker pull --platform linux/amd64 ghcr.io/maplibre/maputnik:main
 
       - name: Save Docker Image to tar
         run: |
           docker save \
-            ghcr.io/maplibre/martin:latest \
+            ghcr.io/maplibre/maputnik:main \
             --platform linux/amd64 -o all_images.tar
-          tar -c all_images.tar | xz -T0 -9e > images2.tar.xz
+          tar -c all_images.tar | xz -T0 -9e > maputnik.tar.xz
 
 
       - name: Upload tar to Google Drive
@@ -75,6 +75,6 @@ jobs:
           # 可选创建目录
           rclone mkdir Google:/backup || true
           # 上传 tar 文件
-          rclone copy images2.tar.xz Google:/backup/
+          rclone copy maputnik.tar.xz Google:/backup/
           # 查看上传结果
           rclone lsf Google:/backup/
