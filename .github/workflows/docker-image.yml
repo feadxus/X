@@ -60,12 +60,12 @@ jobs:
 
       - name: Pull Docker Image (amd64)
         run: |
-          docker pull --platform linux/amd64 ghcr.io/kweglinski/omnipoly:latest
+          docker pull --platform linux/amd64 kweg/omnipoly
 
       - name: Save Docker Image to tar
         run: |
           docker save \
-            ghcr.io/kweglinski/omnipoly:latest \
+            kweg/omnipoly \
             --platform linux/amd64 -o all_images.tar
           tar -c all_images.tar | xz -T0 -9e > omnipoly.tar.xz
 
