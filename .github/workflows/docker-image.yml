@@ -60,14 +60,16 @@ jobs:
 
       - name: Pull Docker Image (amd64)
         run: |
-          docker pull --platform linux/amd64 elestio/languagetool
+          docker pull --platform linux/amd64 redis:latest ollama/ollama postgres:16
 
       - name: Save Docker Image to tar
         run: |
           docker save \
-            elestio/languagetool \
+            redis:latest \
+            ollama/ollama \
+            postgres:16 \
             --platform linux/amd64 -o all_images.tar
-          tar -c all_images.tar | xz -T0 -9e > languagetool.tar.xz
+          tar -c all_images.tar | xz -T0 -9e > argus+redis+ollama+postgres.tar.xz
 
 
       - name: Upload tar to Google Drive
@@ -75,6 +77,6 @@ jobs:
           # 可选创建目录
           rclone mkdir Google:/backup || true
           # 上传 tar 文件
-          rclone copy languagetool.tar.xz Google:/backup/
+          rclone copy argus+redis+ollama+postgres.tar.xz Google:/backup/
           # 查看上传结果
           rclone lsf Google:/backup/
