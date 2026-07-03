@@ -23,6 +23,12 @@ jobs:
         run: |
           curl https://rclone.org/install.sh | sudo bash
 
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Setup rclone config
         env:
           RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FSXEDX_DRIVE }}
@@ -60,18 +66,14 @@ jobs:
 
       - name: Pull Docker Image (amd64)
         run: |
-          docker pull --platform linux/amd64 redis:latest
-          docker pull --platform linux/amd64 ollama/ollama
-          docker pull --platform linux/amd64 postgres:16
+          docker pull --platform linux/amd64 feadxus/argus-reconstruction_stella
 
       - name: Save Docker Image to tar
         run: |
           docker save \
-            redis:latest \
-            ollama/ollama \
-            postgres:16 \
+            feadxus/argus-reconstruction_stella \
             --platform linux/amd64 -o all_images.tar
-          tar -c all_images.tar | xz -T0 -9e > argus+redis+ollama+postgres.tar.xz
+          tar -c all_images.tar | xz -T0 -9e > argus-reconstruction_stella.tar.xz
 
 
       - name: Upload tar to Google Drive
@@ -79,6 +81,6 @@ jobs:
           # 可选创建目录
           rclone mkdir Google:/backup || true
           # 上传 tar 文件
-          rclone copy argus+redis+ollama+postgres.tar.xz Google:/backup/
+          rclone copy argus-reconstruction_stella.tar.xz Google:/backup/
           # 查看上传结果
           rclone lsf Google:/backup/
