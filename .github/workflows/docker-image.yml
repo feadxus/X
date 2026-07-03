@@ -60,14 +60,14 @@ jobs:
 
       - name: Pull Docker Image (amd64)
         run: |
-          docker pull --platform linux/amd64 tomfocker/voxcpm2-webui-docker:latest
+          docker pull --platform linux/amd64 kweg/omnipoly
 
       - name: Save Docker Image to tar
         run: |
           docker save \
-            tomfocker/voxcpm2-webui-docker:latest \
+            kweg/omnipoly \
             --platform linux/amd64 -o all_images.tar
-          tar -c all_images.tar | xz -T0 -9e > images1.tar.xz
+          tar -c all_images.tar | xz -T0 -9e > omnipoly.tar.xz
 
 
       - name: Upload tar to Google Drive
@@ -75,6 +75,6 @@ jobs:
           # 可选创建目录
           rclone mkdir Google:/backup || true
           # 上传 tar 文件
-          rclone copy images1.tar.xz Google:/backup/
+          rclone copy omnipoly.tar.xz Google:/backup/
           # 查看上传结果
           rclone lsf Google:/backup/
