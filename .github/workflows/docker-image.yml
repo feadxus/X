@@ -66,12 +66,16 @@ jobs:
 
       - name: Pull Docker Image (amd64)
         run: |
-          docker pull --platform linux/amd64 feadxus/argus-reconstruction_stella
-
+          docker pull --platform linux/amd64 feadxus/argus-detection_yolo
+          #docker pull --platform linux/amd64 feadxus/argus-detection
+          #docker pull --platform linux/amd64 feadxus/comfyui-voxcpm
+          # 下面两个是小镜像
+          #docker pull --platform linux/amd64 feadxus/argus-frontend
+          #docker pull --platform linux/amd64 feadxus/argus-api
       - name: Save Docker Image to tar
         run: |
           docker save \
-            feadxus/argus-reconstruction_stella \
+            feadxus/argus-detection_yolo \
             --platform linux/amd64 -o all_images.tar
           tar -c all_images.tar | xz -T0 -9e > argus-reconstruction_stella.tar.xz
 
