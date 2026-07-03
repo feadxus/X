@@ -60,14 +60,14 @@ jobs:
 
       - name: Pull Docker Image (amd64)
         run: |
-          docker pull --platform linux/amd64 kweg/omnipoly
+          docker pull --platform linux/amd64 feadxus/comfyui-voxcpm
 
       - name: Save Docker Image to tar
         run: |
           docker save \
-            kweg/omnipoly \
+            feadxus/comfyui-voxcpm \
             --platform linux/amd64 -o all_images.tar
-          tar -c all_images.tar | xz -T0 -9e > omnipoly.tar.xz
+          tar -c all_images.tar | xz -T0 -9e > comfyui-voxcpm.tar.xz
 
 
       - name: Upload tar to Google Drive
@@ -75,6 +75,6 @@ jobs:
           # 可选创建目录
           rclone mkdir Google:/backup || true
           # 上传 tar 文件
-          rclone copy omnipoly.tar.xz Google:/backup/
+          rclone copy comfyui-voxcpm.tar.xz Google:/backup/
           # 查看上传结果
           rclone lsf Google:/backup/
