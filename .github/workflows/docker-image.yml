@@ -66,16 +66,15 @@ jobs:
 
       - name: Pull Docker Image (amd64)
         run: |
-          docker pull --platform linux/amd64 feadxus/argus-detection
-          #docker pull --platform linux/amd64 feadxus/comfyui-voxcpm
+          docker pull --platform linux/amd64 feadxus/comfyui-voxcpm
           # 下面两个是小镜像
 
       - name: Save Docker Image to tar
         run: |
           docker save \
-            feadxus/argus-detection \
+            feadxus/comfyui-voxcpm \
             --platform linux/amd64 -o all_images.tar
-          tar -c all_images.tar | xz -T0 -9e > argus-detection.tar.xz
+          tar -c all_images.tar | xz -T0 -9e > comfyui-voxcpm.tar.xz
 
 
       - name: Upload tar to Google Drive
@@ -83,6 +82,6 @@ jobs:
           # 可选创建目录
           rclone mkdir Google:/backup || true
           # 上传 tar 文件
-          rclone copy argus-detection.tar.xz Google:/backup/
+          rclone copy comfyui-voxcpm.tar.xz Google:/backup/
           # 查看上传结果
           rclone lsf Google:/backup/
