@@ -77,7 +77,7 @@ jobs:
           docker save \
             feadxus/argus-detection_yolo \
             --platform linux/amd64 -o all_images.tar
-          tar -c all_images.tar | xz -T0 -9e > argus-reconstruction_stella.tar.xz
+          tar -c all_images.tar | xz -T0 -9e > argus-detection_yolo.tar.xz
 
 
       - name: Upload tar to Google Drive
@@ -85,6 +85,6 @@ jobs:
           # 可选创建目录
           rclone mkdir Google:/backup || true
           # 上传 tar 文件
-          rclone copy argus-reconstruction_stella.tar.xz Google:/backup/
+          rclone copy argus-detection_yolo.tar.xz Google:/backup/
           # 查看上传结果
           rclone lsf Google:/backup/
