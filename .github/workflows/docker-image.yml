@@ -73,8 +73,7 @@ jobs:
       - name: Save Docker Image to tar
         run: |
           docker save \
-            feadxus/argus-frontend \
-            feadxus/argus-api \
+            feadxus/argus-detection \
             --platform linux/amd64 -o all_images.tar
           tar -c all_images.tar | xz -T0 -9e > argus-detection.tar.xz
 
