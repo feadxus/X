@@ -1,4 +1,3 @@
-后续需要下载所有摄像头模型
 name: Build ALICE Categorized Package And Upload To Google Drive
 
 on:
