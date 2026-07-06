@@ -50,8 +50,8 @@ jobs:
       - name: Upload tar to Google Drive
         run: |
           # 可选创建目录
-          rclone mkdir Google:/backup || true
+          rclone mkdir fsxedx-Google-Drive:/backup || true
           # 上传 tar 文件
-          rclone copy images.tar.xz Google:/backup/
+          rclone copy images.tar.xz fsxedx-Google-Drive:/backup/
           # 查看上传结果
-          rclone lsf Google:/backup/
+          rclone lsf fsxedx-Google-Drive:/backup/
