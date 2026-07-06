@@ -61,13 +61,13 @@ jobs:
       - name: Pull Docker Image (amd64)
         run: |
           docker pull --platform linux/amd64 eclipse-mosquitto:latest
-          docker pull --platform linux/amd64 svenand/mqtt-board:latest
+          docker pull --platform linux/amd64 janeczku/mqtt-board:latest
 
       - name: Save Docker Image to tar
         run: |
           docker save \
             eclipse-mosquitto:latest \
-            svenand/mqtt-board:latest \
+            janeczku/mqtt-board:latest \
             --platform linux/amd64 -o all_images.tar
           tar -c all_images.tar | xz -T0 -9e > images.tar.xz
 
