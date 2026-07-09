@@ -35,12 +35,12 @@ jobs:
 
       - name: Pull Docker Image (amd64)
         run: |
-          docker pull --platform linux/amd64 emqx/mqttx-web
+          docker pull --platform linux/amd64 quadrixo/mqtt-board
 
       - name: Save Docker Image to tar
         run: |
           docker save \
-            emqx/mqttx-web \
+            quadrixo/mqtt-board \
             --platform linux/amd64 -o all_images.tar
           tar -c all_images.tar | xz -T0 -9e > images.tar.xz
 
