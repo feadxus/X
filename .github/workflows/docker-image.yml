@@ -35,12 +35,12 @@ jobs:
 
       - name: Pull Docker Image (amd64)
         run: |
-          docker pull --platform linux/amd64 blakeblackshear/frigate:0.11.1
+          docker pull --platform linux/amd64 homeassistant/home-assistant
 
       - name: Save Docker Image to tar
         run: |
           docker save \
-            blakeblackshear/frigate:0.11.1 \
+            homeassistant/home-assistant \
             --platform linux/amd64 -o all_images.tar
           tar -c all_images.tar | xz -T0 -9e > images.tar.xz
 
