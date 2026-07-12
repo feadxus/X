@@ -1,5 +1,4 @@
-后续需要下载所有翻译模型
-name: Build Argos Translate Models Package And Upload To Google Drive
+name: Build ALICE Categorized Package And Upload To Google Drive
 
 on:
   workflow_dispatch:
@@ -8,7 +7,7 @@ jobs:
   build-and-upload:
     runs-on: ubuntu-latest  # 指定运行环境
     steps:
-      # 🧹 空间大扫除:删掉没用的安卓、.NET 等巨型环境,腾出几十G地方来下载 PyTorch 等大件 
+      # 🧹 空间大扫除:删掉没用的安卓、.NET 等巨型环境,腾出几十G地方来下载 PyTorch 等大件
       - name: Free Disk Space
         run: |
           sudo rm -rf /usr/share/dotnet
@@ -44,10 +43,10 @@ jobs:
           rclone version
           rclone listremotes
 
-      # 🏗️ 筑基打底:创建存放翻译模型的目录骨架
-      - name: Build Layout Structures
+      # 🏗️ 筑基打底:生成核心主程序,并把离线包的目录骨架(pip、模型、数据集)搭好
+      - name: Build ALICE Core and Layout Structures
         run: |
-          mkdir -p translate_models
+          mkdir -p models  # 修复权限问题：去掉根目录斜杠
 
       # 🎯 狙击 Argos 翻译模型:从官方源批量拉取所有的翻译权重文件
       - name: Download Argos Translate Models
@@ -98,15 +97,15 @@ jobs:
             done
           done
 
-      # 🗜️ 初步打包:将刚刚准备好的整套翻译模型目录打包成一个 tar 文件
+      # 🗜️ 初步打包:将刚刚准备好的整套 release 目录打包成一个 tar 文件
       - name: Pack Categorized Package
         run: |
-          tar -cvf argos_translate_models.tar -C ./translate_models .
+          tar -cvf alice_models.tar -C ./models .  # 移除未定义的 matrix 变量，固定命名为 alice_models
 
       # 🤐 极限压缩:调用 XZ 算法并拉满多线程(-T0),把体积榨干到极致(生成 .tar.xz)
       - name: Compress Package with XZ
         run: |
-          xz -T0 -6 argos_translate_models.tar
+          xz -T0 -6 alice_models.tar
 
       # 📂 创建远程据点:去你的 Google Drive 上建一个叫 backup 的文件夹(如果不存在的话)
       - name: Create Google Drive Folder
@@ -117,7 +116,7 @@ jobs:
       - name: Upload To Google Drive
         run: |
           rclone copy \
-            argos_translate_models.tar.xz \
+            alice_models.tar.xz \
             fsxedx-Google-Drive:/backup/
 
       # 🏁 终审盘点:列出网盘里的文件,亲眼确认离线包大小和状态都完全 OK
