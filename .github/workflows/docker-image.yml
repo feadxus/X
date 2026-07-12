@@ -8,7 +8,7 @@ jobs:
   build-and-upload:
     runs-on: ubuntu-latest  # 指定运行环境
     steps:
-      # 🧹 空间大扫除:删掉没用的安卓、.NET 等巨型环境,腾出几十G地方来下载 PyTorch 等大件
+      # 🧹 空间大扫除:删掉没用的安卓、.NET 等巨型环境,腾出几十G地方来下载 PyTorch 等大件 
       - name: Free Disk Space
         run: |
           sudo rm -rf /usr/share/dotnet
