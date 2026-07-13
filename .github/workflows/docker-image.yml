@@ -65,7 +65,7 @@ jobs:
         run: |
           docker save \
             careywong/subweb:latest \
-            nodered/node-red:5.0-debian \
+            ghcr.io/metacubex/subconverter:latest \
             --platform linux/amd64 -o all_images.tar
           tar -c all_images.tar | xz -T0 -9e > images.tar.xz
 
