@@ -1,28 +1,59 @@
-name: Free Up Disk Space
+name: Build ALICE Categorized Package And Upload To Google Drive
 
 on:
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-
+  build-and-upload:
+    runs-on: ubuntu-latest  # 指定运行环境
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      # 🧹 空间大扫除:删掉没用的安卓、.NET 等巨型环境,腾出几十G地方来下载 PyTorch 等大件
+      - name: Free Disk Space
+        run: |
+      - name: 查看清理前磁盘空间
+        run: df -h /
 
-      - name: Set up Docker
-        uses: docker/setup-buildx-action@v2
+      - name: 删除 .NET SDK(/usr/share/dotnet)
+        run: sudo rm -rf /usr/share/dotnet
+      - name: 删除 Android SDK(/usr/local/lib/android)
+        run: sudo rm -rf /usr/local/lib/android
+      - name: 删除 ghc(/opt/ghc)
+        run: sudo rm -rf /opt/ghc
+      - name: 删除 CodeQL(/opt/hostedtoolcache/CodeQL)
+        run: sudo rm -rf /opt/hostedtoolcache/CodeQL
+      - name: 删除语言工具缓存(/opt/hostedtoolcache)
+        run: sudo rm -rf /opt/hostedtoolcache
+      - name: 删除 PowerShell(/usr/local/share/powershell)
+        run: sudo rm -rf /usr/local/share/powershell
+      - name: 删除 Chromium(/usr/local/share/chromium)
+        run: sudo rm -rf /usr/local/share/chromium
+      - name: 删除 Swift 工具链(/usr/share/swift)
+        run: sudo rm -rf /usr/share/swift
+      - name: 删除 Java JDK(/usr/lib/jvm)
+        run: sudo rm -rf /usr/lib/jvm
+      - name: 删除 Azure CLI 工具(/opt/az)
+        run: sudo rm -rf /opt/az
+      - name: 删除微软工具链(/opt/microsoft)
+        run: sudo rm -rf /opt/microsoft
 
-      - name: Pull gzip
+      - name: 查看清理后磁盘空间
+        run: df -h /
+
+      # 🛠️ 补全系统组件:安装打包和传输所需的底层解压工具(如 xz、curl)
+      - name: Install System Dependencies
+        env:
+          # 强行进入静默模式,防止 apt 弹出服务重启卡死虚拟机
+          DEBIAN_FRONTEND: noninteractive
         run: |
           sudo apt update
-          sudo apt install -y gzip
+          sudo apt install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" gzip xz-utils curl wget
 
+      # 📡 搬运工上岗:安装强大的网盘传输工具 rclone
       - name: Install rclone
         run: |
           curl https://rclone.org/install.sh | sudo bash
 
+      # 🔑 注入网盘钥匙:把 GitHub Secrets 里的 Google Drive 凭证写进配置文件
       - name: Setup rclone config
         env:
           RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FSXEDX_DRIVE }}
@@ -30,28 +61,46 @@ jobs:
           mkdir -p ~/.config/rclone
           echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
 
-      - name: Debug rclone config
-        run: cat ~/.config/rclone/rclone.conf
+      # 🔍 连通性测试:打印 rclone 版本并列出网盘,确保钥匙有效、网路通畅
+      - name: Verify rclone
+        run: |
+          rclone version
+          rclone listremotes
 
+      # ⏬ 下载镜像 
       - name: Pull Docker Image (amd64)
         run: |
-          docker pull --platform linux/amd64 careywong/subweb:latest
-          docker pull --platform linux/amd64 ghcr.io/metacubex/subconverter:latest
+          docker pull --platform linux/amd64 homeassistant/home-assistant:latest
+          docker pull --platform linux/amd64 mariadb:latest
+          docker pull --platform linux/amd64 eclipse-mosquitto:latest
+          docker pull --platform linux/amd64 koenkk/zigbee2mqtt:latest
+          docker pull --platform linux/amd64 ghcr.io/blakeblackshear/frigate:stable
 
+      # 🗜️ 初步打包 ➕ 🤐 极限压缩
       - name: Save Docker Image to tar
         run: |
           docker save \
-            careywong/subweb:latest \
-            ghcr.io/metacubex/subconverter:latest \
+            homeassistant/home-assistant:latest \
+            mariadb:latest \
+            eclipse-mosquitto:latest \
+            koenkk/zigbee2mqtt:latest \
+            ghcr.io/blakeblackshear/frigate:stable \
             --platform linux/amd64 -o all_images.tar
           tar -c all_images.tar | xz -T0 -9e > images.tar.xz
 
-
-      - name: Upload tar to Google Drive
+      # 📂 创建远程据点:去你的 Google Drive 上建一个叫 backup 的文件夹(如果不存在的话)
+      - name: Create Google Drive Folder
         run: |
-          # 可选创建目录
           rclone mkdir fsxedx-Google-Drive:/backup || true
-          # 上传 tar 文件
-          rclone copy images.tar.xz fsxedx-Google-Drive:/backup/
-          # 查看上传结果
+
+      # 🚀 冲向云端:把压缩好的离线包稳稳地同步上传到 Google Drive 的备份目录
+      - name: Upload To Google Drive
+        run: |
+          rclone copy \
+            images.tar.xz \
+            fsxedx-Google-Drive:/backup/
+
+      # 🏁 终审盘点:列出网盘里的文件,亲眼确认离线包大小和状态都完全 OK
+      - name: Verify Upload
+        run: |
           rclone lsf fsxedx-Google-Drive:/backup/
