@@ -85,16 +85,16 @@ jobs:
       # 📂 创建远程据点:去你的 Google Drive 上建一个叫 backup 的文件夹(如果不存在的话)
       - name: Create Google Drive Folder
         run: |
-          rclone mkdir fsxedx-Google-Drive:/backup || true
+          rclone mkdir feadxus-Google-Drive:/backup || true
 
       # 🚀 冲向云端:把压缩好的离线包稳稳地同步上传到 Google Drive 的备份目录
       - name: Upload To Google Drive
         run: |
           rclone copy \
             images.tar.xz \
-            fsxedx-Google-Drive:/backup/
+            feadxus-Google-Drive:/backup/
 
       # 🏁 终审盘点:列出网盘里的文件,亲眼确认离线包大小和状态都完全 OK
       - name: Verify Upload
         run: |
-          rclone lsf fsxedx-Google-Drive:/backup/
+          rclone lsf feadxus-Google-Drive:/backup/
