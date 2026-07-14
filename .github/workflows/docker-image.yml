@@ -24,37 +24,14 @@ jobs:
           curl https://rclone.org/install.sh | sudo bash
 
       - name: Setup rclone config
+        env:
+          RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FSXEDX_DRIVE }}
         run: |
           mkdir -p ~/.config/rclone
-          cp rclone.conf ~/.config/rclone/
+          echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
 
       - name: Debug rclone config
         run: cat ~/.config/rclone/rclone.conf
-
-      - name: 查看清理前磁盘空间
-        run: df -h /
-
-      - name: 删除 .NET SDK(/usr/share/dotnet)
-        run: sudo rm -rf /usr/share/dotnet
-      - name: 删除 Android SDK(/usr/local/lib/android)
-        run: sudo rm -rf /usr/local/lib/android
-      - name: 删除语言工具缓存(/opt/hostedtoolcache)
-        run: sudo rm -rf /opt/hostedtoolcache
-      - name: 删除 PowerShell(/usr/local/share/powershell)
-        run: sudo rm -rf /usr/local/share/powershell
-      - name: 删除 Chromium(/usr/local/share/chromium)
-        run: sudo rm -rf /usr/local/share/chromium
-      - name: 删除 Swift 工具链(/usr/share/swift)
-        run: sudo rm -rf /usr/share/swift
-      - name: 删除 Java JDK(/usr/lib/jvm)
-        run: sudo rm -rf /usr/lib/jvm
-      - name: 删除 Azure CLI 工具(/opt/az)
-        run: sudo rm -rf /opt/az
-      - name: 删除微软工具链(/opt/microsoft)
-        run: sudo rm -rf /opt/microsoft
-
-      - name: 查看清理后磁盘空间
-        run: df -h /
 
       - name: Pull Docker Image (amd64)
         run: |
