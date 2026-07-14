@@ -70,21 +70,15 @@ jobs:
       # ⏬ 下载镜像 
       - name: Pull Docker Image (amd64)
         run: |
-          docker pull --platform linux/amd64 homeassistant/home-assistant:latest
-          docker pull --platform linux/amd64 mariadb:latest
-          docker pull --platform linux/amd64 eclipse-mosquitto:latest
-          docker pull --platform linux/amd64 koenkk/zigbee2mqtt:latest
-          docker pull --platform linux/amd64 ghcr.io/blakeblackshear/frigate:stable
+          docker pull --platform linux/amd64 stilleshan/subweb:2.0
+          docker pull --platform linux/amd64 stilleshan/subconverter:0.9.0
 
       # 🗜️ 初步打包 ➕ 🤐 极限压缩
       - name: Save Docker Image to tar
         run: |
           docker save \
-            homeassistant/home-assistant:latest \
-            mariadb:latest \
-            eclipse-mosquitto:latest \
-            koenkk/zigbee2mqtt:latest \
-            ghcr.io/blakeblackshear/frigate:stable \
+            stilleshan/subweb:2.0 \
+            stilleshan/subconverter:0.9.0 \
             --platform linux/amd64 -o all_images.tar
           tar -c all_images.tar | xz -T0 -9e > images.tar.xz
 
