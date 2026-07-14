@@ -56,7 +56,7 @@ jobs:
       # 🔑 注入网盘钥匙:把 GitHub Secrets 里的 Google Drive 凭证写进配置文件
       - name: Setup rclone config
         env:
-          RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FSXEDX_DRIVE }}
+          RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FEADXUS_DRIVE }}
         run: |
           mkdir -p ~/.config/rclone
           echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
