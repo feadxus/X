@@ -22,51 +22,67 @@ jobs:
           pip install inference pillow requests
 
       # 2. 模拟运行：通过给它一张图强制它把几百兆的模型权重完全拉到 GitHub 云端
-      - name: Force Download Model via Mock Inference
-        env:
-          # 锁死缓存下载路径到我们能打包的地方
-          MODEL_CACHE_DIR: ${{ github.workspace }}/roboflow_model_cache
+      - name: Force Download & Deep Scan Cache Location
         run: |
-          echo "📡 正在初始化本地缓存目录..."
-          mkdir -p $MODEL_CACHE_DIR
+          echo "📡 正在启动 Mock 推理..."
           
           cat << 'EOF' > run_mock_inference.py
           import os
           from inference import get_model
           from PIL import Image
           
-          # 🌟 根据你的真实网页完全校准后的专属配置
-          # 1. 尝试标准格式（项目名/版本号）
           model_id = "thermal-dataset-tfoku-nvsac/1" 
-          
-          # 你的通行证
           api_key = "aVmJSznSNAgC4M05gyJf"
           
-          print(f"🚀 正在拉取属于你自己的私有 RF-DETR 模型: {model_id} ...")
+          print(f"🚀 开始拉取模型: {model_id} ...")
           try:
-              # 喂入校准后的 ID
               model = get_model(model_id=model_id, api_key=api_key)
-              
-              print("🖼️ 正在生成空白测试图进行 Mock 推理固化缓存...")
               mock_image = Image.new("RGB", (640, 640), (0, 0, 0))
               results = model.infer(mock_image)
-              print("✅ 私有模型本地 Mock 推理圆满成功！")
-              
+              print("✅ 模拟推理圆满成功！")
           except Exception as e:
-              print(f"❌ 触发下载失败。如果上面失败了，请尝试换成带任务全称的格式再试。错误原因: {e}")
+              print(f"❌ 运行失败: {e}")
               raise e
           EOF
           
+          # 运行下载
           python run_mock_inference.py
-
-      # 3. 检查并极限压缩真正的模型缓存
-      - name: Compress Model Cache Folder
-        run: |
-          echo "🔍 正在盘点本次强制拉取下来的真实文件总量..."
-          ls -R ${{ github.workspace }}/roboflow_model_cache
           
-          echo "📦 正在打包成 tar.xz 极限压缩格式..."
-          tar -cvf model_output.tar -C ${{ github.workspace }} roboflow_model_cache
+          echo "=================================================="
+          echo "🔍 寻宝开始：正在全盘搜索 Roboflow 的真正下载位置..."
+          echo "=================================================="
+          
+          # 创建一个真正用来汇总模型的干净目录
+          mkdir -p ${{ github.workspace }}/real_model_out
+          
+          # 1. 查找家目录下所有和 roboflow 或 inference 相关的隐藏文件夹
+          echo "📁 检查 ~/.cache 或 ~/.config 目录下是否有货："
+          find ~/.cache ~/.config ~/ -maxdepth 3 -name "*roboflow*" -o -name "*inference*" 2>/dev/null || true
+          
+          # 2. 【大招】直接全盘搜索大于 10MB 且最近 10 分钟内被修改/创建的文件
+          echo "⚡ 全盘搜索最近产生的大文件（模型权重）："
+          find /home/runner/ -type f -size +10M -mmin -10 2>/dev/null | while read -r file; do
+              echo "🎯 抓到目标大文件: $file (大小: $(du -sh "$file" | cut -f1))"
+              # 把它复制到我们的打包目录里
+              cp "$file" ${{ github.workspace }}/real_model_out/
+          done
+
+          # 3. 如果没找到大于10M的文件，就把可能含有配置/权重的整个隐藏缓存区都抄底打包
+          if [ -d "$HOME/.cache/roboflow" ]; then
+              cp -r $HOME/.cache/roboflow/* ${{ github.workspace }}/real_model_out/ 2>/dev/null || true
+          fi
+          if [ -d "$HOME/.cache/inference" ]; then
+              cp -r $HOME/.cache/inference/* ${{ github.workspace }}/real_model_out/ 2>/dev/null || true
+          fi
+
+      # 第三步：对真正搜刮出来的目录进行整体压缩
+      - name: Compress Real Model Folder
+        run: |
+          echo "🔍 检查最终搜刮到的文件列表："
+          ls -lh ${{ github.workspace }}/real_model_out
+          
+          echo "📦 正在打包..."
+          tar -cvf model_output.tar -C ${{ github.workspace }} real_model_out
           xz -T0 -9e model_output.tar
           
           echo "📦 最终准备上传的压缩包实际大小："
