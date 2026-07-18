@@ -11,83 +11,63 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 安装 Python 环境和 Roboflow 的推理工具
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Install Roboflow Inference
+      # 第一步：直接动态向 Roboflow 索要真实下载直链，并拉取真正的 ZIP 压缩包
+      - name: Dynamic Extract And Download ZIP
         run: |
-          pip install inference pillow requests
+          echo "📡 正在向 Roboflow 索要真实的下载直链..."
+          
+          # 核心参数定义
+          WORKSPACE="trainojt-cefvy"
+          PROJECT="thermal-point"
+          VERSION="2"
+          API_KEY="aVmJSznSNAgC4M05gyJf"
+          
+          # 请求 API 矩阵
+          API_URL="https://api.roboflow.com/${WORKSPACE}/${PROJECT}/${VERSION}/yolov8?api_key=${API_KEY}"
+          
+          # 动态捕获真实的下载链接（通过 jq 解析接口返回的 export.link）
+          REAL_DOWNLOAD_LINK=$(curl -s "$API_URL" | jq -r '.export.link')
+          
+          if [ "$REAL_DOWNLOAD_LINK" == "null" ] || [ -z "$REAL_DOWNLOAD_LINK" ]; then
+              echo "❌ 提取失败！未能从响应中解析到有效 link，请检查 API KEY 或项目权限。"
+              exit 1
+          fi
+          
+          echo "🎯 成功捕获真实直链: $REAL_DOWNLOAD_LINK"
+          echo "🚀 开始顺藤摸瓜全力拉取真实模型数据集..."
+          
+          # 用真正的直链去下载文件
+          curl -L -f "$REAL_DOWNLOAD_LINK" -o "roboflow_export.zip"
+          
+          echo "✅ 资源落盘成功！盘点原始 ZIP 包实际大小："
+          ls -lh roboflow_export.zip
 
-      - name: Install Roboflow Client
+      # 第二步：解压并转化为标准高压缩 tar.xz 格式
+      - name: Re-compress Folder
         run: |
-          pip install roboflow pillow requests
-
-      # 创建专属缓存目录并用 Python 动态获取真实 ID 后拉取模型权重
-      - name: Trigger Model Download and Cache
-        run: |
-          # 创建一个我们自己好控制的缓存目录
-          mkdir -p ${{ github.workspace }}/roboflow_model_cache
+          echo "📦 正在解压并转化为 tar.xz 格式..."
+          mkdir -p roboflow_unzipped
           
-          # 通过写入临时 python 脚本来运行
-          cat << 'EOF' > download_model.py
-          import os
-          from roboflow import Roboflow
+          # 释放 ZIP 到临时文件夹中
+          unzip -q roboflow_export.zip -d roboflow_unzipped/
           
-          # 锁死下载缓存路径
-          os.environ["MODEL_CACHE_DIR"] = "${{ github.workspace }}/roboflow_model_cache"
+          # 打印一下解压出来的文件结构，确保里面有货
+          echo "📂 解压后的目录结构盘点："
+          ls -R roboflow_unzipped
           
-          # 别人的项目基本信息
-          workspace = "trainojt-cefvy"
-          project_name = "thermal-point"
-          version_num = 2  # 如果想要 V3 也可以直接改成 3
-          
-          # 你的通用私钥
-          api_key = "aVmJSznSNAgC4M05gyJf"
-          
-          print("📡 正在绕过 inference 注册表,改用基础 Roboflow 客户端连接...")
-          rf = Roboflow(api_key=api_key)
-          
-          try:
-              # 定位到目标公开工作区与项目
-              project = rf.workspace(workspace).project(project_name)
-              
-              print(f"🚀 正在强制将版本 v{version_num} 的公开数据与对应模型导出下载到本地...")
-              # 使用 yolov8 或 yolov5pytorch 格式将它整个拽下来
-              dataset = project.version(version_num).download("yolov8", location="${{ github.workspace }}/roboflow_model_cache")
-              
-              print("✅ 奇迹发生!整个项目的资源已成功绕过限制,完整拖回本地!")
-          except Exception as e:
-              print(f"❌ 基础拉取也失败.错误原因: {e}")
-              raise e
-          EOF
-          
-          python download_model.py
-
-      # 将缓存下来的整个模型目录压缩打包
-      - name: Compress Model Folder
-        run: |
-          echo "🔍 正在检查下载到的文件结构..."
-          ls -R ${{ github.workspace }}/roboflow_model_cache
-          
-          # 不再访问内部用 . 打包，而是直接把这整个文件夹连根拔起打进去
-          tar -cvf model_output.tar -C ${{ github.workspace }} roboflow_model_cache
-          
-          # 极限压缩
+          # 重新整体打包成你的标准备份包
+          tar -cvf model_output.tar -C ${{ github.workspace }} roboflow_unzipped
           xz -T0 -9e model_output.tar
           
-          # 打印压缩后的大小,如果是几兆或者几十兆就说明成了!
-          echo "📦 压缩包实际大小展示："
+          echo "📦 最终准备上传的压缩包实际大小："
           ls -lh model_output.tar.xz
 
-      # 📡 搬运工上岗:安装强大的网盘传输工具 rclone
+      # 第三步：📡 搬运工上岗：安装强大的网盘传输工具 rclone
       - name: Install rclone
         run: |
           curl https://rclone.org/install.sh | sudo bash
 
-      # 🔑 注入网盘钥匙:把 GitHub Secrets 里的 Google Drive 凭证写进配置文件
+      # 第四步：🔑 注入网盘钥匙：把 GitHub Secrets 里的 Google Drive 凭证写进配置文件
       - name: Setup rclone config
         env:
           RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FEADXUS_DRIVE }}
@@ -95,19 +75,19 @@ jobs:
           mkdir -p ~/.config/rclone
           echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
 
-      # 📂 创建远程据点:去你的 Google Drive 上建一个叫 backup 的文件夹(如果不存在的话)
+      # 第五步：📂 创建远程据点：去你的 Google Drive 上建一个叫 backup 的文件夹
       - name: Create Google Drive Folder
         run: |
           rclone mkdir feadxus-Google-Drive:/backup || true
 
-      # 🚀 冲向云端:把压缩好的离线包稳稳地同步上传到 Google Drive 的备份目录
+      # 第六步：🚀 冲向云端：把压缩好的离线包稳稳地同步上传到 Google Drive 的备份目录
       - name: Upload To Google Drive
         run: |
           rclone copy \
             model_output.tar.xz \
             feadxus-Google-Drive:/backup/
 
-      # 🏁 终审盘点:列出网盘里的文件,亲眼确认离线包大小和状态都完全 OK
+      # 第七步：🏁 终审盘点：列出网盘里的文件，亲眼确认离线包大小和状态都完全 OK
       - name: Verify Upload
         run: |
           rclone lsf feadxus-Google-Drive:/backup/
