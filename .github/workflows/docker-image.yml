@@ -33,55 +33,49 @@ jobs:
           import requests
           from inference import get_model
           
-          # 1. 指定下载缓存路径
+          # 1. 锁死下载缓存路径
           os.environ["MODEL_CACHE_DIR"] = "${{ github.workspace }}/roboflow_model_cache"
           
           workspace = "trainojt-cefvy"
           project_name = "thermal-point"
           api_key = "aVmJSznSNAgC4M05gyJf"
           
-          # 🌟 重新发起精准侦察
           探测_url = f"https://api.roboflow.com/{workspace}/{project_name}?api_key={api_key}"
           print("📡 正在向 Roboflow 侦察该项目的真实后台 Model ID...")
           
           try:
               res = requests.get(探测_url)
-              # 打印状态码，确保网络没被拦截
               print(f"🛰️ 接口状态码: {res.status_code}")
               response = res.json()
               
               target_version = None
-              versions_list = response.get("project", {}).get("versions", [])
+              # 🌟 【精准修复】：直接去最外层获取真实的 versions 列表，而不是去找 project 里面的整数
+              versions_list = response.get("versions", [])
               
-              # 2. 强固的类型转换判断，彻底解决 'int' 报错
+              # 遍历真实列表
               for v in versions_list:
                   v_id = str(v.get("id", ""))
-                  v_num = str(v.get("version", ""))
                   
-                  # 只要版本号是 2，或者 id 结尾是 /2，就是我们要的目标！
-                  if v_num == "2" or v_id.endswith("/2"):
+                  # 根据返回的真实数据，v_id 的格式是 "trainojt-cefvy/thermal-point/2"
+                  # 我们直接判断它是不是以 "/2" 结尾
+                  if v_id.endswith("/2"):
                       target_version = v_id
                       break
               
               if target_version:
                   model_id = target_version
-                  print(f"🎯 侦察成功！真实的带加密后缀 model_id 是: {model_id}")
+                  print(f"🎯 侦察成功！后台最真实的 model_id 是: {model_id}")
               else:
-                  # 如果实在找不到 v2，直接抓第一个保底
+                  # 如果没找到 v2，直接抓列表里的第一个（最新版本）保底
                   model_id = versions_list[0]["id"]
                   print(f"⚠️ 列表中未找到 v2，自动使用最新版本 ID: {model_id}")
                   
           except Exception as e:
               print(f"❌ 侦察严重报错: {e}")
-              print("📋 后台返回的原始 JSON 数据如下，请留存核对:")
-              try:
-                  print(res.text)
-              except:
-                  pass
-              # 绝不让它瞎猜，查不到直接抛出异常中断，防止盲目下载
-              raise RuntimeError("无法从 Roboflow 接口获取有效的 Model ID，停止后续运行。")
+              raise RuntimeError("由于代码逻辑或接口问题，无法获取有效 Model ID，停止运行。")
           
           print("🚀 开始在 GitHub 云端拉取 Roboflow 模型...")
+          # 3. 此时喂给它的 model_id 格式将是完全合规的 "trainojt-cefvy/thermal-point/2"
           model = get_model(model_id=model_id, api_key=api_key)
           print("✅ 模型拉取成功！")
           EOF
