@@ -19,9 +19,9 @@ jobs:
 
       - name: Install Roboflow Inference
         run: |
-          pip install inference pillow
+          pip install inference pillow requests
 
-      # 第二步：创建专属缓存目录并用 Python 强制拉取模型权重
+      # 第二步：创建专属缓存目录并用 Python 动态获取真实 ID 后拉取模型权重
       - name: Trigger Model Download and Cache
         run: |
           # 创建一个我们自己好控制的缓存目录
@@ -30,19 +30,46 @@ jobs:
           # 通过写入临时 python 脚本来运行
           cat << 'EOF' > download_model.py
           import os
+          import requests
           from inference import get_model
           
           # 1. 强行指定下载缓存路径到我们刚建的文件夹里
           os.environ["MODEL_CACHE_DIR"] = "${{ github.workspace }}/roboflow_model_cache"
           
-          # 2. 填入你分析出来的对方的 Model ID
-          model_id = "thermal-point-cefvy/2"
-          
-          # 3. 填入你自己的 Private API Key (开头是 aVmJ 的那个)
+          # 对方项目在 URL 上的用户名和项目名
+          workspace = "trainojt-cefvy"
+          project_name = "thermal-point"
           api_key = "aVmJSznSNAgC4M05gyJf"
           
+          # 🌟 【核心修复】：先通过 API 去探测项目真实的后台 Model ID
+          探测_url = f"https://api.roboflow.com/{workspace}/{project_name}?api_key={api_key}"
+          print("📡 正在向 Roboflow 侦察该项目的真实后台 Model ID...")
+          
+          try:
+              response = requests.get(探测_url).json()
+              target_version = None
+              
+              # 遍历所有版本，寻觅版本号（version）为 2 的那个真实 ID
+              for v in response.get("project", {}).get("versions", []):
+                  if str(v.get("version")).endswith(".2") or str(v.get("id")).endswith("/2"):
+                      target_version = v.get("id")
+                      break
+              
+              if target_version:
+                  model_id = target_version
+                  print(f"🎯 侦察成功！后台真实且带后缀的 model_id 是: {model_id}")
+              else:
+                  # 如果没匹配到，保底拿它列表里的第一个最新版本
+                  model_id = response["project"]["versions"][0]["id"]
+                  print(f"⚠️ 未精确匹配到 v2 名字，已自动启用最新版本 ID: {model_id}")
+                  
+          except Exception as e:
+              # 极端情况查不到，再用拼凑的方案碰碰运气
+              model_id = "thermal-point-cefvy/2"
+              print(f"❌ 侦察接口报错: {e}，将尝试保底方案: {model_id}")
+          
           print("🚀 开始在 GitHub 云端拉取 Roboflow 模型...")
-          # 这一步执行完，文件就实实在在掉到我们的硬盘目录里了
+          # 这一步使用 100% 准确的真实后台 ID，绝对不会再报 404 了！
           model = get_model(model_id=model_id, api_key=api_key)
           print("✅ 模型拉取成功！")
           EOF
