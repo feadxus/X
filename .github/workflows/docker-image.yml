@@ -30,54 +30,34 @@ jobs:
           # 通过写入临时 python 脚本来运行
           cat << 'EOF' > download_model.py
           import os
-          import requests
           from inference import get_model
           
           # 1. 锁死下载缓存路径
           os.environ["MODEL_CACHE_DIR"] = "${{ github.workspace }}/roboflow_model_cache"
           
+          # 别人的项目基本信息
           workspace = "trainojt-cefvy"
           project_name = "thermal-point"
+          version = "2"
+          
+          # 使用你自己的 API 密钥作为通行证
           api_key = "aVmJSznSNAgC4M05gyJf"
           
-          探测_url = f"https://api.roboflow.com/{workspace}/{project_name}?api_key={api_key}"
-          print("📡 正在向 Roboflow 侦察该项目的真实后台 Model ID...")
+          # 🌟【跨账号 Universe 标准格式】：项目名-用户名/版本号
+          # 只有这种格式，Roboflow 才会明白你是想去公共社区拉取别人的资产
+          model_id = f"{project_name}-{workspace}/{version}"
+          
+          print(f"🎯 正在跨域请求 Roboflow Universe 上的公开模型...")
+          print(f"🔮 拼装后的标准 Universe Model ID 为: {model_id}")
+          print("🚀 开始在 GitHub 云端拉取模型文件...")
           
           try:
-              res = requests.get(探测_url)
-              print(f"🛰️ 接口状态码: {res.status_code}")
-              response = res.json()
-              
-              target_version = None
-              versions_list = response.get("versions", [])
-              
-              for v in versions_list:
-                  v_id = str(v.get("id", ""))
-                  if v_id.endswith("/2"):
-                      target_version = v_id
-                      break
-              
-              if target_version:
-                  raw_id = target_version
-                  print(f"🎯 侦察到原始 API ID 为: {raw_id}")
-              else:
-                  raw_id = versions_list[0]["id"]
-                  print(f"⚠️ 列表中未找到 v2，自动使用最新版本原始 ID: {raw_id}")
-                  
-              # 🌟【最核心的修复】：把 "trainojt-cefvy/thermal-point/2" 
-              # 完美转换成 inference 能够识别的 "thermal-point-cefvy/2"
-              # 规律就是：项目名-用户名后五位/版本号
-              model_id = f"{project_name}-{workspace[-5:]}/2"
-              print(f"🔮 转换格式成功！喂给 inference 的合规 model_id 是: {model_id}")
-                  
+              # 喂入拼接好的 thermal-point-trainojt-cefvy/2
+              model = get_model(model_id=model_id, api_key=api_key)
+              print("✅ 奇迹发生！模型跨域拉取成功！")
           except Exception as e:
-              print(f"❌ 侦察严重报错: {e}")
-              raise RuntimeError("由于代码逻辑或接口问题，无法获取有效 Model ID，停止运行。")
-          
-          print("🚀 开始在 GitHub 云端拉取 Roboflow 模型...")
-          # 3. 此时 model_id 为 "thermal-point-cefvy/2"，属于官方认可的格式
-          model = get_model(model_id=model_id, api_key=api_key)
-          print("✅ 模型拉取成功！")
+              print(f"❌ 拉取依旧失败。错误原因: {e}")
+              raise e
           EOF
           
           python download_model.py
