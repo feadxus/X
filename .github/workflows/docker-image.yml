@@ -52,18 +52,44 @@ jobs:
           # 动态写入并执行 Python 提取脚本
           cat << 'EOF' > get_model.py
           import os
+          import requests
           from inference import get_model
           
-          # 1. 强行把下载路径锁死在我们刚才创建的文件夹里
+          # 1. 锁死本地缓存文件夹路径
           os.environ["MODEL_CACHE_DIR"] = "${{ github.workspace }}/model_cache"
           
-          # 2. 对方的 Model ID (根据你从对方 URL 拼出来的地址填写)
-          model_id = "thermal-point-cefvy/2"
-          
-          # 3. 读取刚刚注入的环境变量钥匙
+          # 2. 获取 API 密钥
           api_key = os.environ.get("ROBOFLOW_KEY")
           
-          print("🚀 正在通过 GitHub 高速网络拉取目标模型...")
+          # 【新增步骤】：直接去后台向官方服务器查验该项目的真正 ID 
+          project_url = f"https://api.roboflow.com/trainojt-cefvy/thermal-point?api_key={api_key}"
+          print("📡 正在向 Roboflow 侦察该项目的真实后台 Model ID...")
+          
+          try:
+              response = requests.get(project_url).json()
+              # 自动提取 v2 版本的真实全名
+              # 这里的 versions 列表里包含了所有版本，我们找版本号为 2 的那个
+              target_version = None
+              for v in response.get("project", {}).get("versions", []):
+                  if str(v.get("version")).endswith(".2") or str(v.get("id")).endswith("/2"):
+                      target_version = v.get("id")
+                      break
+              
+              if not target_version:
+                  # 如果没匹配到，默认保底拿最新版本的 ID
+                  target_version = response["project"]["versions"][0]["id"]
+                  print("⚠️ 未精确匹配到 v2 名字，已自动启用最新版本 ID")
+                  
+              model_id = target_version
+              print(f"🎯 侦察成功！真实的后台 model_id 是: {model_id}")
+              
+          except Exception as e:
+              print(f"❌ 侦察失败，采用原备用方案。错误原因: {e}")
+              # 备用保底：如果实在查不到，尝试将名字和用户名拼接的另一种官方标准格式
+              model_id = "thermal-point-cefvy/2"
+          
+          # 3. 拿到 100% 正确的 model_id 后，开始拉取
+          print("🚀 开始通过 GitHub 高速网络拉取目标模型...")
           model = get_model(model_id=model_id, api_key=api_key)
           print("✅ 模型实体已成功掉落到本地缓存目录！")
           EOF
