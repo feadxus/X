@@ -11,7 +11,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 第一步:安装 Python 环境和 Roboflow 的推理工具
+      # 安装 Python 环境和 Roboflow 的推理工具
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -25,7 +25,7 @@ jobs:
         run: |
           pip install roboflow pillow requests
 
-      # 第二步:创建专属缓存目录并用 Python 动态获取真实 ID 后拉取模型权重
+      # 创建专属缓存目录并用 Python 动态获取真实 ID 后拉取模型权重
       - name: Trigger Model Download and Cache
         run: |
           # 创建一个我们自己好控制的缓存目录
@@ -36,7 +36,7 @@ jobs:
           import os
           from roboflow import Roboflow
           
-          # 1. 锁死下载缓存路径
+          # 锁死下载缓存路径
           os.environ["MODEL_CACHE_DIR"] = "${{ github.workspace }}/roboflow_model_cache"
           
           # 别人的项目基本信息
@@ -51,7 +51,7 @@ jobs:
           rf = Roboflow(api_key=api_key)
           
           try:
-              # 2. 定位到目标公开工作区与项目
+              # 定位到目标公开工作区与项目
               project = rf.workspace(workspace).project(project_name)
               
               print(f"🚀 正在强制将版本 v{version_num} 的公开数据与对应模型导出下载到本地...")
