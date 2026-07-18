@@ -34,28 +34,26 @@ jobs:
           import os
           from inference import get_model
           from PIL import Image
-          import requests
           
-          # 你的专属配置（根据你的截图填入）
-          # 注意：请把下面的 ID 完整补充为你截图中左边那个完整的 ID
-          model_id = "thermal-3nyja-oytjd-1-rfdetr-large-t1" 
+          # 🌟 根据你的真实网页完全校准后的专属配置
+          # 1. 尝试标准格式（项目名/版本号）
+          model_id = "thermal-dataset-tfoku-nvsac/1" 
+          
+          # 你的通行证
           api_key = "aVmJSznSNAgC4M05gyJf"
           
-          print(f"🚀 正在强制拉取并加载属于你的模型: {model_id} ...")
+          print(f"🚀 正在拉取属于你自己的私有 RF-DETR 模型: {model_id} ...")
           try:
-              # 这一步会强制触发官方去拉取真正的权重组件
+              # 喂入校准后的 ID
               model = get_model(model_id=model_id, api_key=api_key)
               
-              print("🖼️ 正在生成一张空白测试图，用来假装进行一次推理...")
-              # 生成一张 640x640 的纯黑图片喂给它，迫使它完成模型初始化的全过程
+              print("🖼️ 正在生成空白测试图进行 Mock 推理固化缓存...")
               mock_image = Image.new("RGB", (640, 640), (0, 0, 0))
-              
-              print("🧠 开始本地 Mock 推理（这会彻底激活并固化缓存）...")
               results = model.infer(mock_image)
-              print("✅ 模拟推理圆满成功！")
+              print("✅ 私有模型本地 Mock 推理圆满成功！")
               
           except Exception as e:
-              print(f"❌ 触发下载失败，报错原因: {e}")
+              print(f"❌ 触发下载失败。如果上面失败了，请尝试换成带任务全称的格式再试。错误原因: {e}")
               raise e
           EOF
           
