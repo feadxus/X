@@ -53,40 +53,7 @@ jobs:
         run: |
           BASE="https://argos-net.com/v1"
           FILES=(
-            translate-sq_en-1_9.argosmodel translate-ar_en-1_0.argosmodel translate-az_en-1_5.argosmodel
-            translate-eu_en-1_9.argosmodel translate-bn_en-1_9.argosmodel translate-bg_en-1_9.argosmodel
-            translate-ca_en-1_7.argosmodel translate-zt_en-1_9.argosmodel translate-zh_en-1_9.argosmodel
-            translate-cs_en-1_9_6.argosmodel translate-da_en-1_9.argosmodel translate-nl_en-1_8.argosmodel
-            translate-en_sq-1_9.argosmodel translate-en_ar-1_0.argosmodel translate-en_az-1_5.argosmodel
-            translate-en_eu-1_9.argosmodel translate-en_bn-1_9.argosmodel translate-en_bg-1_9.argosmodel
-            translate-en_ca-1_9.argosmodel translate-en_zh-1_9.argosmodel translate-en_zt-1_9.argosmodel
-            translate-en_cs-1_9_6.argosmodel translate-en_da-1_9.argosmodel translate-en_nl-1_8.argosmodel
-            translate-en_eo-1_5.argosmodel translate-en_et-1_9.argosmodel translate-en_fi-1_9.argosmodel
-            translate-en_fr-1_9.argosmodel translate-en_gl-1_9.argosmodel translate-en_de-1_3.argosmodel
-            translate-en_el-1_9.argosmodel translate-en_he-1_5.argosmodel translate-en_hi-1_1.argosmodel
-            translate-en_hu-1_9.argosmodel translate-en_id-1_9.argosmodel translate-en_ga-1_1.argosmodel
-            translate-en_it-1_0.argosmodel translate-en_ja-1_1.argosmodel translate-en_ko-1_1.argosmodel
-            translate-en_ky-1_4.argosmodel translate-en_lv-1_9.argosmodel translate-en_lt-1_9.argosmodel
-            translate-en_ms-1_9.argosmodel translate-en_nb-1_9.argosmodel translate-en_fa-1_5.argosmodel
-            translate-en_pl-1_9.argosmodel translate-en_pt-1_9.argosmodel translate-en_pb-1_9.argosmodel
-            translate-en_ro-1_9.argosmodel translate-en_ru-1_9.argosmodel translate-en_sk-1_9.argosmodel
-            translate-en_sl-1_9.argosmodel translate-en_es-1_0.argosmodel translate-en_sw-1_11.argosmodel
-            translate-en_sv-1_5.argosmodel translate-en_tl-1_9.argosmodel translate-en_th-1_9.argosmodel
-            translate-en_tr-1_5.argosmodel translate-en_uk-1_4.argosmodel translate-en_ur-1_9.argosmodel
-            translate-en_vi-1_9.argosmodel translate-eo_en-1_5.argosmodel translate-et_en-1_9.argosmodel
-            translate-fi_en-1_9.argosmodel translate-fr_en-1_9.argosmodel translate-gl_en-1_9.argosmodel
-            translate-de_en-1_3.argosmodel translate-el_en-1_9.argosmodel translate-he_en-1_5.argosmodel
-            translate-hi_en-1_1.argosmodel translate-hu_en-1_9.argosmodel translate-id_en-1_9.argosmodel
-            translate-ga_en-1_1.argosmodel translate-it_en-1_0.argosmodel translate-ja_en-1_1.argosmodel
-            translate-ko_en-1_1.argosmodel translate-ky_en-1_4.argosmodel translate-lv_en-1_9.argosmodel
-            translate-lt_en-1_9.argosmodel translate-ms_en-1_9.argosmodel translate-nb_en-1_9.argosmodel
-            translate-fa_en-1_5.argosmodel translate-pl_en-1_9.argosmodel translate-pb_en-1_9.argosmodel
-            translate-pt_en-1_9.argosmodel translate-pt_es-1_0.argosmodel translate-ro_en-1_9.argosmodel
-            translate-ru_en-1_9.argosmodel translate-sk_en-1_9.argosmodel translate-sl_en-1_9.argosmodel
-            translate-es_en-1_9.argosmodel translate-es_pt-1_0.argosmodel translate-sw_en-1_11.argosmodel
-            translate-sv_en-1_5.argosmodel translate-tl_en-1_9.argosmodel translate-th_en-1_9.argosmodel
-            translate-tr_en-1_5.argosmodel translate-uk_en-1_9.argosmodel translate-ur_en-1_9.argosmodel
-            translate-vi_en-1_9.argosmodel
+            translate-sq_en-1_9.argosmodel
           )
           
           for file in "${FILES[@]}"; do
