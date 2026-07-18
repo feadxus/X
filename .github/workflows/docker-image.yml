@@ -87,12 +87,19 @@ jobs:
           mkdir -p ~/.config/rclone
           echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
 
-      # 第五步:将打包好的模型一键运送到你的 Google Drive 
-      - name: Upload Model to Google Drive
+      # 📂 创建远程据点:去你的 Google Drive 上建一个叫 backup 的文件夹(如果不存在的话)
+      - name: Create Google Drive Folder
         run: |
-          # 在网盘中创建目标备份目录
-          rclone mkdir fsxedx-Google-Drive:/backup/models || true
-          # 复制模型压缩包到网盘
-          rclone copy model_output.tar.xz fsxedx-Google-Drive:/backup/models/
-          # 查看网盘里是否已经有了
-          rclone lsf fsxedx-Google-Drive:/backup/models/
+          rclone mkdir feadxus-Google-Drive:/backup || true
+
+      # 🚀 冲向云端:把压缩好的离线包稳稳地同步上传到 Google Drive 的备份目录
+      - name: Upload To Google Drive
+        run: |
+          rclone copy \
+            model_output.tar.xz \
+            feadxus-Google-Drive:/backup/
+
+      # 🏁 终审盘点:列出网盘里的文件,亲眼确认离线包大小和状态都完全 OK
+      - name: Verify Upload
+        run: |
+          rclone lsf feadxus-Google-Drive:/backup/
