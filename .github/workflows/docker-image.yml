@@ -42,14 +42,14 @@ jobs:
           echo "✅ 资源落盘成功！盘点原始 ZIP 包实际大小："
           ls -lh roboflow_export.zip
 
-      # 第二步：解压并转化为标准高压缩 tar.xz 格式
+      # 第二步：解压（强制覆盖不弹窗）并转化为标准高压缩 tar.xz 格式
       - name: Re-compress Folder
         run: |
           echo "📦 正在解压并转化为 tar.xz 格式..."
           mkdir -p roboflow_unzipped
           
-          # 释放 ZIP 到临时文件夹中
-          unzip -q roboflow_export.zip -d roboflow_unzipped/
+          # 🌟【精准修复】：加上 -o 参数，遇到同名文件直接强制覆盖，绝不弹窗卡死
+          unzip -o -q roboflow_export.zip -d roboflow_unzipped/
           
           # 打印一下解压出来的文件结构，确保里面有货
           echo "📂 解压后的目录结构盘点："
