@@ -1,109 +1,92 @@
-name: Free Up Disk Space & Fetch My Own Model
+name: Build Argos Translate Models Package And Upload To Google Drive
 
 on:
-  workflow_dispatch: # 支持手动一键触发
+  workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-
+  build-and-upload:
+    runs-on: ubuntu-latest  # 指定运行环境
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      # 1. 既然要调用自建模型，我们需要装回推理环境
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Install Roboflow Inference
+      # 🧹 空间大扫除:删掉没用的安卓、.NET 等巨型环境,腾出几十G地方来下载 PyTorch 等大件
+      - name: Free Disk Space
         run: |
-          pip install inference pillow requests
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
 
-      # 第二步：强行下载模型，并精准锁定真正的 HTTP 缓存
-      - name: Force Download & Precise Cache Backup
+      # 🛠️ 补全系统组件:安装打包和传输所需的底层解压工具(如 xz、curl)
+      - name: Install System Dependencies
+        env:
+          # 强行进入静默模式,防止 apt 弹出服务重启卡死虚拟机
+          DEBIAN_FRONTEND: noninteractive
         run: |
-          echo "📡 正在启动 Mock 推理..."
-          
-          cat << 'EOF' > run_mock_inference.py
-          import os
-          from inference import get_model
-          from PIL import Image
-          
-          model_id = "thermal-dataset-tfoku-nvsac/1" 
-          api_key = "aVmJSznSNAgC4M05gyJf"
-          
-          print(f"🚀 开始拉取模型: {model_id} ...")
-          try:
-              model = get_model(model_id=model_id, api_key=api_key)
-              mock_image = Image.new("RGB", (640, 640), (0, 0, 0))
-              results = model.infer(mock_image)
-              print("✅ 模拟推理圆满成功！")
-          except Exception as e:
-              print(f"❌ 运行失败: {e}")
-              raise e
-          EOF
-          
-          # 运行下载，生成核心 pip 缓存
-          python run_mock_inference.py
-          
-          echo "=================================================="
-          echo "🎯 正在对精准锁定的 pip 核心网络缓存进行提取归档..."
-          echo "=================================================="
-          
-          # 创建一个完全干净的临时隔离区，用于维持原有的目录结构
-          mkdir -p ${{ github.workspace }}/roboflow_offline_cache/.cache/pip/
-          
-          # 将整个 http-v2 缓存原封不动抄底复制过去（保护好哈希索引）
-          if [ -d "$HOME/.cache/pip/http-v2" ]; then
-              cp -r "$HOME/.cache/pip/http-v2" ${{ github.workspace }}/roboflow_offline_cache/.cache/pip/
-              echo "✅ 成功精准捕获 19M + 57M 核心模型体及配套网络索引！"
-          else
-              echo "❌ 警告：未找到预期的 http-v2 目录！"
-              exit 1
-          fi
+          sudo apt update
+          sudo apt install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" gzip xz-utils curl wget
 
-      # 第三步：进行超高压缩，并输出报告
-      - name: Compress Target Model Cache
-        run: |
-          echo "🔍 验证即将打包的隔离区结构与大小："
-          du -sh ${{ github.workspace }}/roboflow_offline_cache
-          find ${{ github.workspace }}/roboflow_offline_cache -type f -name "*.body" -exec ls -lh {} \;
-          
-          echo "📦 正在使用极限模式打包 (model_output.tar.xz)..."
-          tar -cvf model_output.tar -C ${{ github.workspace }}/roboflow_offline_cache .
-          xz -T0 -9e model_output.tar
-          
-          echo "🎉 最终交付压缩包实际大小："
-          ls -lh model_output.tar.xz
-
-      # 4. 📡 安装强大的网盘传输工具 rclone
+      # 📡 搬运工上岗:安装强大的网盘传输工具 rclone
       - name: Install rclone
         run: |
           curl https://rclone.org/install.sh | sudo bash
 
-      # 5. 🔑 注入网盘钥匙
+      # 🔑 注入网盘钥匙:把 GitHub Secrets 里的 Google Drive 凭证写进配置文件
       - name: Setup rclone config
         env:
-          RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FEADXUS_DRIVE }}
+          RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FSXEDX_DRIVE }}
         run: |
           mkdir -p ~/.config/rclone
           echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
 
-      # 6. 📂 在 Google Drive 上创建备份目录
+      # 🔍 连通性测试:打印 rclone 版本并列出网盘,确保钥匙有效、网路通畅
+      - name: Verify rclone
+        run: |
+          rclone version
+          rclone listremotes
+
+      # 🏗️ 筑基打底:创建存放翻译模型的目录骨架
+      - name: Build Layout Structures
+        run: |
+          mkdir -p translate_models
+
+      # 🎯 狙击 Argos 翻译模型:从官方源批量拉取所有的翻译权重文件
+      - name: Download Argos Translate Models
+        run: |
+          BASE="https://argos-net.com/v1"
+          FILES=(
+            translate-sq_en-1_9.argosmodel
+          )
+          
+          for file in "${FILES[@]}"; do
+            echo "正在下载: $file ..."
+            while ! curl -L -C - --retry 5 --retry-delay 3 --connect-timeout 10 -o "translate_models/$file" "$BASE/$file"; do
+              echo "下载中断，10秒后重试..."
+              sleep 10
+            done
+          done
+
+      # 🗜️ 初步打包:将刚刚准备好的整套翻译模型目录打包成一个 tar 文件
+      - name: Pack Categorized Package
+        run: |
+          tar -cvf argos_translate_models.tar -C ./translate_models .
+
+      # 🤐 极限压缩:调用 XZ 算法并拉满多线程(-T0),把体积榨干到极致(生成 .tar.xz)
+      - name: Compress Package with XZ
+        run: |
+          xz -T0 -6 argos_translate_models.tar
+
+      # 📂 创建远程据点:去你的 Google Drive 上建一个叫 backup 的文件夹(如果不存在的话)
       - name: Create Google Drive Folder
         run: |
-          rclone mkdir feadxus-Google-Drive:/backup || true
+          rclone mkdir Google:/backup || true
 
-      # 7. 🚀 冲向云端
+      # 🚀 冲向云端:把压缩好的离线包稳稳地同步上传到 Google Drive 的备份目录
       - name: Upload To Google Drive
         run: |
           rclone copy \
-            model_output.tar.xz \
-            feadxus-Google-Drive:/backup/
+            argos_translate_models.tar.xz \
+            Google:/backup/
 
-      # 8. 🏁 终审盘点
+      # 🏁 终审盘点:列出网盘里的文件,亲眼确认离线包大小和状态都完全 OK
       - name: Verify Upload
         run: |
-          rclone lsf feadxus-Google-Drive:/backup/
+          rclone lsf Google:/backup/
