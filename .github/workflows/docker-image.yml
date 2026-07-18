@@ -1,52 +1,20 @@
-name: Build ALICE Categorized Package And Upload To Google Drive
+name: Fetch Roboflow Model And Upload To Google Drive
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # 支持手动一键触发
 
 jobs:
   build-and-upload:
     runs-on: ubuntu-latest  # 指定运行环境
     steps:
-      # 🧹 空间大扫除:删掉没用的安卓、.NET 等巨型环境,腾出几十G地方来下载 PyTorch 等大件
-      - name: Free Disk Space
-        run: |
-      - name: 查看清理前磁盘空间
-        run: df -h /
-
-      - name: 删除 .NET SDK(/usr/share/dotnet)
-        run: sudo rm -rf /usr/share/dotnet
-      - name: 删除 Android SDK(/usr/local/lib/android)
-        run: sudo rm -rf /usr/local/lib/android
-      - name: 删除 ghc(/opt/ghc)
-        run: sudo rm -rf /opt/ghc
-      - name: 删除 CodeQL(/opt/hostedtoolcache/CodeQL)
-        run: sudo rm -rf /opt/hostedtoolcache/CodeQL
-      - name: 删除语言工具缓存(/opt/hostedtoolcache)
-        run: sudo rm -rf /opt/hostedtoolcache
-      - name: 删除 PowerShell(/usr/local/share/powershell)
-        run: sudo rm -rf /usr/local/share/powershell
-      - name: 删除 Chromium(/usr/local/share/chromium)
-        run: sudo rm -rf /usr/local/share/chromium
-      - name: 删除 Swift 工具链(/usr/share/swift)
-        run: sudo rm -rf /usr/share/swift
-      - name: 删除 Java JDK(/usr/lib/jvm)
-        run: sudo rm -rf /usr/lib/jvm
-      - name: 删除 Azure CLI 工具(/opt/az)
-        run: sudo rm -rf /opt/az
-      - name: 删除微软工具链(/opt/microsoft)
-        run: sudo rm -rf /opt/microsoft
-
-      - name: 查看清理后磁盘空间
-        run: df -h /
-
-      # 🛠️ 补全系统组件:安装打包和传输所需的底层解压工具(如 xz、curl)
+      # 🛠️ 补全系统组件:安装打包和传输所需的底层解压工具(如 xz、curl)以及 Python 环境
       - name: Install System Dependencies
         env:
           # 强行进入静默模式,防止 apt 弹出服务重启卡死虚拟机
           DEBIAN_FRONTEND: noninteractive
         run: |
           sudo apt update
-          sudo apt install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" gzip xz-utils curl wget
+          sudo apt install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" gzip xz-utils curl wget python3-pip python3-setuptools
 
       # 📡 搬运工上岗:安装强大的网盘传输工具 rclone
       - name: Install rclone
@@ -67,34 +35,63 @@ jobs:
           rclone version
           rclone listremotes
 
-      # ⏬ 下载镜像 
-      - name: Pull Docker Image (amd64)
+      # 🐍 准备 AI 环境: 安装 Roboflow 的本地推理客户端
+      - name: Install Roboflow Inference
         run: |
-          docker pull --platform linux/amd64 mariadb:latest
-          docker pull --platform linux/amd64 koenkk/zigbee2mqtt:latest
+          pip3 install inference pillow
 
-      # 🗜️ 初步打包 ➕ 🤐 极限压缩
-      - name: Save Docker Image to tar
+      # ⏬ 巧妙下载: 运行 Python 触发机制,将云端模型"骗"到本地指定的缓存目录
+      - name: Download Roboflow Model to Cache
+        env:
+          # 从你的 Github Secrets 引入 Roboflow 钥匙,安全防泄漏
+          ROBOFLOW_KEY: ${{ secrets.ROBOFLOW_API_KEY }}
         run: |
-          docker save \
-            mariadb:latest \
-            koenkk/zigbee2mqtt:latest \
-            --platform linux/amd64 -o all_images.tar
-          tar -c all_images.tar | xz -T0 -9e > images.tar.xz
+          # 创建一个我们自己好打包的缓存文件夹
+          mkdir -p ${{ github.workspace }}/model_cache
+          
+          # 动态写入并执行 Python 提取脚本
+          cat << 'EOF' > get_model.py
+          import os
+          from inference import get_model
+          
+          # 1. 强行把下载路径锁死在我们刚才创建的文件夹里
+          os.environ["MODEL_CACHE_DIR"] = "${{ github.workspace }}/model_cache"
+          
+          # 2. 对方的 Model ID (根据你从对方 URL 拼出来的地址填写)
+          model_id = "thermal-point-cefvy/2"
+          
+          # 3. 读取刚刚注入的环境变量钥匙
+          api_key = os.environ.get("ROBOFLOW_KEY")
+          
+          print("🚀 正在通过 GitHub 高速网络拉取目标模型...")
+          model = get_model(model_id=model_id, api_key=api_key)
+          print("✅ 模型实体已成功掉落到本地缓存目录！")
+          EOF
+          
+          python3 get_model.py
 
-      # 📂 创建远程据点:去你的 Google Drive 上建一个叫 backup 的文件夹(如果不存在的话)
+      # 🗜️ 初步打包 ➕ 🤐 极限压缩: 把装满模型权重的文件夹压成 xz 格式
+      - name: Compress Model Folder
+        run: |
+          # 进入缓存目录,把里面的结构打成普通的 tar
+          tar -cvf model_raw.tar -C ${{ github.workspace }}/model_cache .
+          # 使用极限压缩率压缩
+          tar -c model_raw.tar | xz -T0 -9e > model_output.tar.xz
+          echo "📦 极限压缩完成！"
+
+      # 📂 创建远程据点:去你的 Google Drive 上建一个叫 backup/models 的文件夹(如果不存在的话)
       - name: Create Google Drive Folder
         run: |
-          rclone mkdir feadxus-Google-Drive:/backup || true
+          rclone mkdir feadxus-Google-Drive:/backup/models || true
 
-      # 🚀 冲向云端:把压缩好的离线包稳稳地同步上传到 Google Drive 的备份目录
+      # 🚀 冲向云端:把压缩好的模型包稳稳地同步上传到 Google Drive 的对应目录
       - name: Upload To Google Drive
         run: |
           rclone copy \
-            images.tar.xz \
-            feadxus-Google-Drive:/backup/
+            model_output.tar.xz \
+            feadxus-Google-Drive:/backup/models/
 
-      # 🏁 终审盘点:列出网盘里的文件,亲眼确认离线包大小和状态都完全 OK
+      # 🏁 终审盘点:列出网盘里的文件,亲眼确认模型离线包大小和状态都完全 OK
       - name: Verify Upload
         run: |
-          rclone lsf feadxus-Google-Drive:/backup/
+          rclone lsf feadxus-Google-Drive:/backup/models/
