@@ -21,8 +21,8 @@ jobs:
         run: |
           pip install inference pillow requests
 
-      # 2. 模拟运行：通过给它一张图强制它把几百兆的模型权重完全拉到 GitHub 云端
-      - name: Force Download & Deep Scan Cache Location
+      # 第二步：强行下载模型，并精准锁定真正的 HTTP 缓存
+      - name: Force Download & Precise Cache Backup
         run: |
           echo "📡 正在启动 Mock 推理..."
           
@@ -45,47 +45,37 @@ jobs:
               raise e
           EOF
           
-          # 运行下载
+          # 运行下载，生成核心 pip 缓存
           python run_mock_inference.py
           
           echo "=================================================="
-          echo "🔍 寻宝开始：正在全盘搜索 Roboflow 的真正下载位置..."
+          echo "🎯 正在对精准锁定的 pip 核心网络缓存进行提取归档..."
           echo "=================================================="
           
-          # 创建一个真正用来汇总模型的干净目录
-          mkdir -p ${{ github.workspace }}/real_model_out
+          # 创建一个完全干净的临时隔离区，用于维持原有的目录结构
+          mkdir -p ${{ github.workspace }}/roboflow_offline_cache/.cache/pip/
           
-          # 1. 查找家目录下所有和 roboflow 或 inference 相关的隐藏文件夹
-          echo "📁 检查 ~/.cache 或 ~/.config 目录下是否有货："
-          find ~/.cache ~/.config ~/ -maxdepth 3 -name "*roboflow*" -o -name "*inference*" 2>/dev/null || true
-          
-          # 2. 【大招】直接全盘搜索大于 10MB 且最近 10 分钟内被修改/创建的文件
-          echo "⚡ 全盘搜索最近产生的大文件（模型权重）："
-          find /home/runner/ -type f -size +10M -mmin -10 2>/dev/null | while read -r file; do
-              echo "🎯 抓到目标大文件: $file (大小: $(du -sh "$file" | cut -f1))"
-              # 把它复制到我们的打包目录里
-              cp "$file" ${{ github.workspace }}/real_model_out/
-          done
-
-          # 3. 如果没找到大于10M的文件，就把可能含有配置/权重的整个隐藏缓存区都抄底打包
-          if [ -d "$HOME/.cache/roboflow" ]; then
-              cp -r $HOME/.cache/roboflow/* ${{ github.workspace }}/real_model_out/ 2>/dev/null || true
-          fi
-          if [ -d "$HOME/.cache/inference" ]; then
-              cp -r $HOME/.cache/inference/* ${{ github.workspace }}/real_model_out/ 2>/dev/null || true
+          # 将整个 http-v2 缓存原封不动抄底复制过去（保护好哈希索引）
+          if [ -d "$HOME/.cache/pip/http-v2" ]; then
+              cp -r "$HOME/.cache/pip/http-v2" ${{ github.workspace }}/roboflow_offline_cache/.cache/pip/
+              echo "✅ 成功精准捕获 19M + 57M 核心模型体及配套网络索引！"
+          else
+              echo "❌ 警告：未找到预期的 http-v2 目录！"
+              exit 1
           fi
 
-      # 第三步：对真正搜刮出来的目录进行整体压缩
-      - name: Compress Real Model Folder
+      # 第三步：进行超高压缩，并输出报告
+      - name: Compress Target Model Cache
         run: |
-          echo "🔍 检查最终搜刮到的文件列表："
-          ls -lh ${{ github.workspace }}/real_model_out
+          echo "🔍 验证即将打包的隔离区结构与大小："
+          du -sh ${{ github.workspace }}/roboflow_offline_cache
+          find ${{ github.workspace }}/roboflow_offline_cache -type f -name "*.body" -exec ls -lh {} \;
           
-          echo "📦 正在打包..."
-          tar -cvf model_output.tar -C ${{ github.workspace }} real_model_out
+          echo "📦 正在使用极限模式打包 (model_output.tar.xz)..."
+          tar -cvf model_output.tar -C ${{ github.workspace }}/roboflow_offline_cache .
           xz -T0 -9e model_output.tar
           
-          echo "📦 最终准备上传的压缩包实际大小："
+          echo "🎉 最终交付压缩包实际大小："
           ls -lh model_output.tar.xz
 
       # 4. 📡 安装强大的网盘传输工具 rclone
