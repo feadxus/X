@@ -35,16 +35,17 @@ jobs:
           # 1. 锁死下载缓存路径
           os.environ["MODEL_CACHE_DIR"] = "${{ github.workspace }}/roboflow_model_cache"
           
-          # 别人的项目基本信息
+          # 别人的公开项目基本信息
           workspace = "trainojt-cefvy"
           project_name = "thermal-point"
-          version = "2"
           
-          # 使用你自己的 API 密钥作为通行证
+          # 🌟【唯一正确的通关密码】：改拿他真正部署公开的第 3 版本！
+          version = "3"
+          
+          # 你的 API 密钥
           api_key = "aVmJSznSNAgC4M05gyJf"
           
-          # 🌟【跨账号 Universe 标准格式】：项目名-用户名/版本号
-          # 只有这种格式，Roboflow 才会明白你是想去公共社区拉取别人的资产
+          # 跨账号 Universe 标准格式：项目名-用户名/版本号
           model_id = f"{project_name}-{workspace}/{version}"
           
           print(f"🎯 正在跨域请求 Roboflow Universe 上的公开模型...")
@@ -52,9 +53,9 @@ jobs:
           print("🚀 开始在 GitHub 云端拉取模型文件...")
           
           try:
-              # 喂入拼接好的 thermal-point-trainojt-cefvy/2
+              # 喂入拼接好的 thermal-point-trainojt-cefvy/3
               model = get_model(model_id=model_id, api_key=api_key)
-              print("✅ 奇迹发生！模型跨域拉取成功！")
+              print("✅ 奇迹发生！Version 3 跨域模型拉取成功！")
           except Exception as e:
               print(f"❌ 拉取依旧失败。错误原因: {e}")
               raise e
