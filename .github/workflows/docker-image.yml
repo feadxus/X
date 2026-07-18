@@ -1,4 +1,4 @@
-name: Free Up Disk Space & Fetch Roboflow Model
+name: Free Up Disk Space & Fetch My Own Model
 
 on:
   workflow_dispatch: # 支持手动一键触发
@@ -11,63 +11,75 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 第一步：直接动态向 Roboflow 索要真实下载直链，并拉取真正的 ZIP 压缩包
-      - name: Dynamic Extract And Download ZIP
-        run: |
-          echo "📡 正在向 Roboflow 索要真实的下载直链..."
-          
-          # 核心参数定义
-          WORKSPACE="trainojt-cefvy"
-          PROJECT="thermal-point"
-          VERSION="2"
-          API_KEY="aVmJSznSNAgC4M05gyJf"
-          
-          # 请求 API 矩阵
-          API_URL="https://api.roboflow.com/${WORKSPACE}/${PROJECT}/${VERSION}/yolov8?api_key=${API_KEY}"
-          
-          # 动态捕获真实的下载链接（通过 jq 解析接口返回的 export.link）
-          REAL_DOWNLOAD_LINK=$(curl -s "$API_URL" | jq -r '.export.link')
-          
-          if [ "$REAL_DOWNLOAD_LINK" == "null" ] || [ -z "$REAL_DOWNLOAD_LINK" ]; then
-              echo "❌ 提取失败！未能从响应中解析到有效 link，请检查 API KEY 或项目权限。"
-              exit 1
-          fi
-          
-          echo "🎯 成功捕获真实直链: $REAL_DOWNLOAD_LINK"
-          echo "🚀 开始顺藤摸瓜全力拉取真实模型数据集..."
-          
-          # 用真正的直链去下载文件
-          curl -L -f "$REAL_DOWNLOAD_LINK" -o "roboflow_export.zip"
-          
-          echo "✅ 资源落盘成功！盘点原始 ZIP 包实际大小："
-          ls -lh roboflow_export.zip
+      # 1. 既然要调用自建模型，我们需要装回推理环境
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
 
-      # 第二步：解压（强制覆盖不弹窗）并转化为标准高压缩 tar.xz 格式
-      - name: Re-compress Folder
+      - name: Install Roboflow Inference
         run: |
-          echo "📦 正在解压并转化为 tar.xz 格式..."
-          mkdir -p roboflow_unzipped
+          pip install inference pillow requests
+
+      # 2. 模拟运行：通过给它一张图强制它把几百兆的模型权重完全拉到 GitHub 云端
+      - name: Force Download Model via Mock Inference
+        env:
+          # 锁死缓存下载路径到我们能打包的地方
+          MODEL_CACHE_DIR: ${{ github.workspace }}/roboflow_model_cache
+        run: |
+          echo "📡 正在初始化本地缓存目录..."
+          mkdir -p $MODEL_CACHE_DIR
           
-          # 🌟【精准修复】：加上 -o 参数，遇到同名文件直接强制覆盖，绝不弹窗卡死
-          unzip -o -q roboflow_export.zip -d roboflow_unzipped/
+          cat << 'EOF' > run_mock_inference.py
+          import os
+          from inference import get_model
+          from PIL import Image
+          import requests
           
-          # 打印一下解压出来的文件结构，确保里面有货
-          echo "📂 解压后的目录结构盘点："
-          ls -R roboflow_unzipped
+          # 你的专属配置（根据你的截图填入）
+          # 注意：请把下面的 ID 完整补充为你截图中左边那个完整的 ID
+          model_id = "thermal-3nyja-oytjd-1-rfdetr-large-t1" 
+          api_key = "aVmJSznSNAgC4M05gyJf"
           
-          # 重新整体打包成你的标准备份包
-          tar -cvf model_output.tar -C ${{ github.workspace }} roboflow_unzipped
+          print(f"🚀 正在强制拉取并加载属于你的模型: {model_id} ...")
+          try:
+              # 这一步会强制触发官方去拉取真正的权重组件
+              model = get_model(model_id=model_id, api_key=api_key)
+              
+              print("🖼️ 正在生成一张空白测试图，用来假装进行一次推理...")
+              # 生成一张 640x640 的纯黑图片喂给它，迫使它完成模型初始化的全过程
+              mock_image = Image.new("RGB", (640, 640), (0, 0, 0))
+              
+              print("🧠 开始本地 Mock 推理（这会彻底激活并固化缓存）...")
+              results = model.infer(mock_image)
+              print("✅ 模拟推理圆满成功！")
+              
+          except Exception as e:
+              print(f"❌ 触发下载失败，报错原因: {e}")
+              raise e
+          EOF
+          
+          python run_mock_inference.py
+
+      # 3. 检查并极限压缩真正的模型缓存
+      - name: Compress Model Cache Folder
+        run: |
+          echo "🔍 正在盘点本次强制拉取下来的真实文件总量..."
+          ls -R ${{ github.workspace }}/roboflow_model_cache
+          
+          echo "📦 正在打包成 tar.xz 极限压缩格式..."
+          tar -cvf model_output.tar -C ${{ github.workspace }} roboflow_model_cache
           xz -T0 -9e model_output.tar
           
           echo "📦 最终准备上传的压缩包实际大小："
           ls -lh model_output.tar.xz
 
-      # 第三步：📡 搬运工上岗：安装强大的网盘传输工具 rclone
+      # 4. 📡 安装强大的网盘传输工具 rclone
       - name: Install rclone
         run: |
           curl https://rclone.org/install.sh | sudo bash
 
-      # 第四步：🔑 注入网盘钥匙：把 GitHub Secrets 里的 Google Drive 凭证写进配置文件
+      # 5. 🔑 注入网盘钥匙
       - name: Setup rclone config
         env:
           RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FEADXUS_DRIVE }}
@@ -75,19 +87,19 @@ jobs:
           mkdir -p ~/.config/rclone
           echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
 
-      # 第五步：📂 创建远程据点：去你的 Google Drive 上建一个叫 backup 的文件夹
+      # 6. 📂 在 Google Drive 上创建备份目录
       - name: Create Google Drive Folder
         run: |
           rclone mkdir feadxus-Google-Drive:/backup || true
 
-      # 第六步：🚀 冲向云端：把压缩好的离线包稳稳地同步上传到 Google Drive 的备份目录
+      # 7. 🚀 冲向云端
       - name: Upload To Google Drive
         run: |
           rclone copy \
             model_output.tar.xz \
             feadxus-Google-Drive:/backup/
 
-      # 第七步：🏁 终审盘点：列出网盘里的文件，亲眼确认离线包大小和状态都完全 OK
+      # 8. 🏁 终审盘点
       - name: Verify Upload
         run: |
           rclone lsf feadxus-Google-Drive:/backup/
