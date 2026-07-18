@@ -1,123 +1,79 @@
-name: Fetch Roboflow Model And Upload To Google Drive
+name: Free Up Disk Space & Fetch Roboflow Model
 
 on:
-  workflow_dispatch:  # 支持手动一键触发
+  workflow_dispatch: # 支持手动一键触发
 
 jobs:
-  build-and-upload:
-    runs-on: ubuntu-latest  # 指定运行环境
-    steps:
-      # 🛠️ 补全系统组件:安装打包和传输所需的底层解压工具(如 xz、curl)以及 Python 环境
-      - name: Install System Dependencies
-        env:
-          # 强行进入静默模式,防止 apt 弹出服务重启卡死虚拟机
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          sudo apt update
-          sudo apt install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" gzip xz-utils curl wget python3-pip python3-setuptools
+  build:
+    runs-on: ubuntu-latest
 
-      # 📡 搬运工上岗:安装强大的网盘传输工具 rclone
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 第一步：安装 Python 环境和 Roboflow 的推理工具
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Roboflow Inference
+        run: |
+          pip install inference pillow
+
+      # 第二步：创建专属缓存目录并用 Python 强制拉取模型权重
+      - name: Trigger Model Download and Cache
+        run: |
+          # 创建一个我们自己好控制的缓存目录
+          mkdir -p ${{ github.workspace }}/roboflow_model_cache
+          
+          # 通过写入临时 python 脚本来运行
+          cat << 'EOF' > download_model.py
+          import os
+          from inference import get_model
+          
+          # 1. 强行指定下载缓存路径到我们刚建的文件夹里
+          os.environ["MODEL_CACHE_DIR"] = "${{ github.workspace }}/roboflow_model_cache"
+          
+          # 2. 填入你分析出来的对方的 Model ID
+          model_id = "thermal-point-cefvy/2"
+          
+          # 3. 填入你自己的 Private API Key (开头是 aVmJ 的那个)
+          api_key = "aVmJSznSNAgC4M05gyJf"
+          
+          print("🚀 开始在 GitHub 云端拉取 Roboflow 模型...")
+          # 这一步执行完，文件就实实在在掉到我们的硬盘目录里了
+          model = get_model(model_id=model_id, api_key=api_key)
+          print("✅ 模型拉取成功！")
+          EOF
+          
+          python download_model.py
+
+      # 第三步：将缓存下来的整个模型目录压缩打包
+      - name: Compress Model Folder
+        run: |
+          # 把下载好的模型文件夹打包成 tar.xz
+          tar -cvf model_output.tar -C ${{ github.workspace }}/roboflow_model_cache .
+          xz -T0 -9e model_output.tar
+          echo "📦 打包压缩完成，文件名为: model_output.tar.xz"
+
+      # 第四步：安装并配置你的 rclone 顺火轮
       - name: Install rclone
         run: |
           curl https://rclone.org/install.sh | sudo bash
 
-      # 🔑 注入网盘钥匙:把 GitHub Secrets 里的 Google Drive 凭证写进配置文件
       - name: Setup rclone config
-        env:
-          RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FEADXUS_DRIVE }}
         run: |
           mkdir -p ~/.config/rclone
-          echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
+          # 确保你的项目根目录下有预先准备好的 rclone.conf 文件
+          cp rclone.conf ~/.config/rclone/
 
-      # 🔍 连通性测试:打印 rclone 版本并列出网盘,确保钥匙有效、网路通畅
-      - name: Verify rclone
+      # 第五步：将打包好的模型一键运送到你的 Google Drive 
+      - name: Upload Model to Google Drive
         run: |
-          rclone version
-          rclone listremotes
-
-      # 🐍 准备 AI 环境: 安装 Roboflow 的本地推理客户端
-      - name: Install Roboflow Inference
-        run: |
-          pip3 install inference pillow
-
-      # ⏬ 巧妙下载: 运行 Python 触发机制,将云端模型"骗"到本地指定的缓存目录
-      - name: Download Roboflow Model to Cache
-        env:
-          # 从你的 Github Secrets 引入 Roboflow 钥匙,安全防泄漏
-          ROBOFLOW_KEY: ${{ secrets.ROBOFLOW_API_KEY }}
-        run: |
-          # 创建一个我们自己好打包的缓存文件夹
-          mkdir -p ${{ github.workspace }}/model_cache
-          
-          # 动态写入并执行 Python 提取脚本
-          cat << 'EOF' > get_model.py
-          import os
-          import requests
-          from inference import get_model
-          
-          # 1. 锁死本地缓存文件夹路径
-          os.environ["MODEL_CACHE_DIR"] = "${{ github.workspace }}/model_cache"
-          
-          # 2. 获取 API 密钥
-          api_key = os.environ.get("ROBOFLOW_KEY")
-          
-          # 【新增步骤】：直接去后台向官方服务器查验该项目的真正 ID 
-          project_url = f"https://api.roboflow.com/trainojt-cefvy/thermal-point?api_key={api_key}"
-          print("📡 正在向 Roboflow 侦察该项目的真实后台 Model ID...")
-          
-          try:
-              response = requests.get(project_url).json()
-              # 自动提取 v2 版本的真实全名
-              # 这里的 versions 列表里包含了所有版本，我们找版本号为 2 的那个
-              target_version = None
-              for v in response.get("project", {}).get("versions", []):
-                  if str(v.get("version")).endswith(".2") or str(v.get("id")).endswith("/2"):
-                      target_version = v.get("id")
-                      break
-              
-              if not target_version:
-                  # 如果没匹配到，默认保底拿最新版本的 ID
-                  target_version = response["project"]["versions"][0]["id"]
-                  print("⚠️ 未精确匹配到 v2 名字，已自动启用最新版本 ID")
-                  
-              model_id = target_version
-              print(f"🎯 侦察成功！真实的后台 model_id 是: {model_id}")
-              
-          except Exception as e:
-              print(f"❌ 侦察失败，采用原备用方案。错误原因: {e}")
-              # 备用保底：如果实在查不到，尝试将名字和用户名拼接的另一种官方标准格式
-              model_id = "thermal-point-cefvy/2"
-          
-          # 3. 拿到 100% 正确的 model_id 后，开始拉取
-          print("🚀 开始通过 GitHub 高速网络拉取目标模型...")
-          model = get_model(model_id=model_id, api_key=api_key)
-          print("✅ 模型实体已成功掉落到本地缓存目录！")
-          EOF
-          
-          python3 get_model.py
-
-      # 🗜️ 初步打包 ➕ 🤐 极限压缩: 把装满模型权重的文件夹压成 xz 格式
-      - name: Compress Model Folder
-        run: |
-          # 进入缓存目录,把里面的结构打成普通的 tar
-          tar -cvf model_raw.tar -C ${{ github.workspace }}/model_cache .
-          # 使用极限压缩率压缩
-          tar -c model_raw.tar | xz -T0 -9e > model_output.tar.xz
-          echo "📦 极限压缩完成！"
-
-      # 📂 创建远程据点:去你的 Google Drive 上建一个叫 backup/models 的文件夹(如果不存在的话)
-      - name: Create Google Drive Folder
-        run: |
-          rclone mkdir feadxus-Google-Drive:/backup/models || true
-
-      # 🚀 冲向云端:把压缩好的模型包稳稳地同步上传到 Google Drive 的对应目录
-      - name: Upload To Google Drive
-        run: |
-          rclone copy \
-            model_output.tar.xz \
-            feadxus-Google-Drive:/backup/models/
-
-      # 🏁 终审盘点:列出网盘里的文件,亲眼确认模型离线包大小和状态都完全 OK
-      - name: Verify Upload
-        run: |
-          rclone lsf feadxus-Google-Drive:/backup/models/
+          # 在网盘中创建目标备份目录
+          rclone mkdir fsxedx-Google-Drive:/backup/models || true
+          # 复制模型压缩包到网盘
+          rclone copy model_output.tar.xz fsxedx-Google-Drive:/backup/models/
+          # 查看网盘里是否已经有了
+          rclone lsf fsxedx-Google-Drive:/backup/models/
