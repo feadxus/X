@@ -60,7 +60,7 @@ jobs:
               
               print("✅ 奇迹发生!整个项目的资源已成功绕过限制,完整拖回本地!")
           except Exception as e:
-              print(f"❌ 基础拉取也失败。错误原因: {e}")
+              print(f"❌ 基础拉取也失败.错误原因: {e}")
               raise e
           EOF
           
@@ -69,10 +69,18 @@ jobs:
       # 将缓存下来的整个模型目录压缩打包
       - name: Compress Model Folder
         run: |
-          # 把下载好的模型文件夹打包成 tar.xz
-          tar -cvf model_output.tar -C ${{ github.workspace }}/roboflow_model_cache .
+          echo "🔍 正在检查下载到的文件结构..."
+          ls -R ${{ github.workspace }}/roboflow_model_cache
+          
+          # 不再访问内部用 . 打包，而是直接把这整个文件夹连根拔起打进去
+          tar -cvf model_output.tar -C ${{ github.workspace }} roboflow_model_cache
+          
+          # 极限压缩
           xz -T0 -9e model_output.tar
-          echo "📦 打包压缩完成,文件名为: model_output.tar.xz"
+          
+          # 打印压缩后的大小,如果是几兆或者几十兆就说明成了!
+          echo "📦 压缩包实际大小展示："
+          ls -lh model_output.tar.xz
 
       # 📡 搬运工上岗:安装强大的网盘传输工具 rclone
       - name: Install rclone
