@@ -105,7 +105,7 @@ jobs:
       # 🤐 极限压缩:调用 XZ 算法并拉满多线程(-T0),把体积榨干到极致(生成 .tar.xz)
       - name: Compress Package with XZ
         run: |
-          xz -T0 -6 alice_models.tar
+          xz -T0 -6 argos_translate_models.tar
 
       # 📂 创建远程据点:去你的 Google Drive 上建一个叫 backup 的文件夹(如果不存在的话)
       - name: Create Google Drive Folder
@@ -116,7 +116,7 @@ jobs:
       - name: Upload To Google Drive
         run: |
           rclone copy \
-            alice_models.tar.xz \
+            argos_translate_models.xz \
             fsxedx-Google-Drive:/backup/
 
       # 🏁 终审盘点:列出网盘里的文件,亲眼确认离线包大小和状态都完全 OK
