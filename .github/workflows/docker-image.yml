@@ -11,7 +11,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 第一步：安装 Python 环境和 Roboflow 的推理工具
+      # 第一步:安装 Python 环境和 Roboflow 的推理工具
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -25,7 +25,7 @@ jobs:
         run: |
           pip install roboflow pillow requests
 
-      # 第二步：创建专属缓存目录并用 Python 动态获取真实 ID 后拉取模型权重
+      # 第二步:创建专属缓存目录并用 Python 动态获取真实 ID 后拉取模型权重
       - name: Trigger Model Download and Cache
         run: |
           # 创建一个我们自己好控制的缓存目录
@@ -47,7 +47,7 @@ jobs:
           # 你的通用私钥
           api_key = "aVmJSznSNAgC4M05gyJf"
           
-          print("📡 正在绕过 inference 注册表，改用基础 Roboflow 客户端连接...")
+          print("📡 正在绕过 inference 注册表,改用基础 Roboflow 客户端连接...")
           rf = Roboflow(api_key=api_key)
           
           try:
@@ -58,7 +58,7 @@ jobs:
               # 使用 yolov8 或 yolov5pytorch 格式将它整个拽下来
               dataset = project.version(version_num).download("yolov8", location="${{ github.workspace }}/roboflow_model_cache")
               
-              print("✅ 奇迹发生！整个项目的资源已成功绕过限制，完整拖回本地！")
+              print("✅ 奇迹发生!整个项目的资源已成功绕过限制,完整拖回本地!")
           except Exception as e:
               print(f"❌ 基础拉取也失败。错误原因: {e}")
               raise e
@@ -66,26 +66,28 @@ jobs:
           
           python download_model.py
 
-      # 第三步：将缓存下来的整个模型目录压缩打包
+      # 将缓存下来的整个模型目录压缩打包
       - name: Compress Model Folder
         run: |
           # 把下载好的模型文件夹打包成 tar.xz
           tar -cvf model_output.tar -C ${{ github.workspace }}/roboflow_model_cache .
           xz -T0 -9e model_output.tar
-          echo "📦 打包压缩完成，文件名为: model_output.tar.xz"
+          echo "📦 打包压缩完成,文件名为: model_output.tar.xz"
 
-      # 第四步：安装并配置你的 rclone 顺火轮
+      # 📡 搬运工上岗:安装强大的网盘传输工具 rclone
       - name: Install rclone
         run: |
           curl https://rclone.org/install.sh | sudo bash
 
+      # 🔑 注入网盘钥匙:把 GitHub Secrets 里的 Google Drive 凭证写进配置文件
       - name: Setup rclone config
+        env:
+          RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FEADXUS_DRIVE }}
         run: |
           mkdir -p ~/.config/rclone
-          # 确保你的项目根目录下有预先准备好的 rclone.conf 文件
-          cp rclone.conf ~/.config/rclone/
+          echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
 
-      # 第五步：将打包好的模型一键运送到你的 Google Drive 
+      # 第五步:将打包好的模型一键运送到你的 Google Drive 
       - name: Upload Model to Google Drive
         run: |
           # 在网盘中创建目标备份目录
