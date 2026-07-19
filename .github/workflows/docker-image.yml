@@ -82,9 +82,9 @@ jobs:
       # 🚀 冲向云端:把压缩好的离线包稳稳地同步上传到 Google Drive 的备份目录
       - name: Upload To Google Drive
         run: |
-          rclone copy \
-            argos_translate_models.xz \
-            fsxedx-Google-Drive:/backup/
+          rclone copyto \
+            argos_translate_models.tar.xz \
+            fsxedx-Google-Drive:/backup/argos_translate_models.tar.xz
 
       # 🏁 终审盘点:列出网盘里的文件,亲眼确认离线包大小和状态都完全 OK
       - name: Verify Upload
