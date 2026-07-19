@@ -1,28 +1,26 @@
-name: Build ALICE Categorized Package And Upload To Google Drive
+name: Build and Push ComfyUI VoxCPM Docker
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [ "master", "main" ]
 
 jobs:
-  build-and-upload:
-    runs-on: ubuntu-latest  # 指定运行环境
+  build-and-push:
+    runs-on: ubuntu-latest
     steps:
-      # 🧹 空间大扫除:删掉没用的安卓、.NET 等巨型环境,腾出几十G地方来下载 PyTorch 等大件
-      - name: Free Disk Space
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-
-      # 🛠️ 补全系统组件:安装打包和传输所需的底层解压工具(如 xz、curl)
-      - name: Install System Dependencies
-        env:
-          # 强行进入静默模式,防止 apt 弹出服务重启卡死虚拟机
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          sudo apt update
-          sudo apt install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" gzip xz-utils curl wget
+      # ====================================================================
+      # 腾出空间!通过卸载不需要的 Android、.NET 等工具,释放出约 30GB+ 空间
+      # ====================================================================
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap: true
 
       # 📡 搬运工上岗:安装强大的网盘传输工具 rclone
       - name: Install rclone
@@ -32,94 +30,42 @@ jobs:
       # 🔑 注入网盘钥匙:把 GitHub Secrets 里的 Google Drive 凭证写进配置文件
       - name: Setup rclone config
         env:
-          RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FSXEDX_DRIVE }}
+          RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FEADXUS_DRIVE }}
         run: |
           mkdir -p ~/.config/rclone
           echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
 
-      # 🔍 连通性测试:打印 rclone 版本并列出网盘,确保钥匙有效、网路通畅
-      - name: Verify rclone
-        run: |
-          rclone version
-          rclone listremotes
+      # 登录镜像仓库(这里以 Docker Hub 为例,换成你自己的 Secrets)
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 🏗️ 创建文件夹
-      - name: Build ALICE Core and Layout Structures
+      # ⏬ 下载镜像 
+      - name: Pull Docker Image (amd64)
         run: |
-          mkdir -p translate_models
+          docker pull --platform linux/amd64 feadxus/comfyui-voxcpm
 
-      # 🎯 狙击 Argos 翻译模型:从官方源批量拉取所有的翻译权重文件
-      - name: Download Argos Translate Models
+      # 🗜️ 一步到位流式压缩(省磁盘、省内存)
+      - name: Save and Compress Docker Image
         run: |
-          BASE="https://argos-net.com/v1"
-          FILES=(
-            translate-sq_en-1_9.argosmodel translate-ar_en-1_0.argosmodel translate-az_en-1_5.argosmodel
-            translate-eu_en-1_9.argosmodel translate-bn_en-1_9.argosmodel translate-bg_en-1_9.argosmodel
-            translate-ca_en-1_7.argosmodel translate-zt_en-1_9.argosmodel translate-zh_en-1_9.argosmodel
-            translate-cs_en-1_9_6.argosmodel translate-da_en-1_9.argosmodel translate-nl_en-1_8.argosmodel
-            translate-en_sq-1_9.argosmodel translate-en_ar-1_0.argosmodel translate-en_az-1_5.argosmodel
-            translate-en_eu-1_9.argosmodel translate-en_bn-1_9.argosmodel translate-en_bg-1_9.argosmodel
-            translate-en_ca-1_9.argosmodel translate-en_zh-1_9.argosmodel translate-en_zt-1_9.argosmodel
-            translate-en_cs-1_9_6.argosmodel translate-en_da-1_9.argosmodel translate-en_nl-1_8.argosmodel
-            translate-en_eo-1_5.argosmodel translate-en_et-1_9.argosmodel translate-en_fi-1_9.argosmodel
-            translate-en_fr-1_9.argosmodel translate-en_gl-1_9.argosmodel translate-en_de-1_3.argosmodel
-            translate-en_el-1_9.argosmodel translate-en_he-1_5.argosmodel translate-en_hi-1_1.argosmodel
-            translate-en_hu-1_9.argosmodel translate-en_id-1_9.argosmodel translate-en_ga-1_1.argosmodel
-            translate-en_it-1_0.argosmodel translate-en_ja-1_1.argosmodel translate-en_ko-1_1.argosmodel
-            translate-en_ky-1_4.argosmodel translate-en_lv-1_9.argosmodel translate-en_lt-1_9.argosmodel
-            translate-en_ms-1_9.argosmodel translate-en_nb-1_9.argosmodel translate-en_fa-1_5.argosmodel
-            translate-en_pl-1_9.argosmodel translate-en_pt-1_9.argosmodel translate-en_pb-1_9.argosmodel
-            translate-en_ro-1_9.argosmodel translate-en_ru-1_9.argosmodel translate-en_sk-1_9.argosmodel
-            translate-en_sl-1_9.argosmodel translate-en_es-1_0.argosmodel translate-en_sw-1_11.argosmodel
-            translate-en_sv-1_5.argosmodel translate-en_tl-1_9.argosmodel translate-en_th-1_9.argosmodel
-            translate-en_tr-1_5.argosmodel translate-en_uk-1_4.argosmodel translate-en_ur-1_9.argosmodel
-            translate-en_vi-1_9.argosmodel translate-eo_en-1_5.argosmodel translate-et_en-1_9.argosmodel
-            translate-fi_en-1_9.argosmodel translate-fr_en-1_9.argosmodel translate-gl_en-1_9.argosmodel
-            translate-de_en-1_3.argosmodel translate-el_en-1_9.argosmodel translate-he_en-1_5.argosmodel
-            translate-hi_en-1_1.argosmodel translate-hu_en-1_9.argosmodel translate-id_en-1_9.argosmodel
-            translate-ga_en-1_1.argosmodel translate-it_en-1_0.argosmodel translate-ja_en-1_1.argosmodel
-            translate-ko_en-1_1.argosmodel translate-ky_en-1_4.argosmodel translate-lv_en-1_9.argosmodel
-            translate-lt_en-1_9.argosmodel translate-ms_en-1_9.argosmodel translate-nb_en-1_9.argosmodel
-            translate-fa_en-1_5.argosmodel translate-pl_en-1_9.argosmodel translate-pb_en-1_9.argosmodel
-            translate-pt_en-1_9.argosmodel translate-pt_es-1_0.argosmodel translate-ro_en-1_9.argosmodel
-            translate-ru_en-1_9.argosmodel translate-sk_en-1_9.argosmodel translate-sl_en-1_9.argosmodel
-            translate-es_en-1_9.argosmodel translate-es_pt-1_0.argosmodel translate-sw_en-1_11.argosmodel
-            translate-sv_en-1_5.argosmodel translate-tl_en-1_9.argosmodel translate-th_en-1_9.argosmodel
-            translate-tr_en-1_5.argosmodel translate-uk_en-1_9.argosmodel translate-ur_en-1_9.argosmodel
-            translate-vi_en-1_9.argosmodel
-          )
-          
-          for file in "${FILES[@]}"; do
-            echo "正在下载: $file ..."
-            while ! curl -L -C - --retry 5 --retry-delay 3 --connect-timeout 10 -o "translate_models/$file" "$BASE/$file"; do
-              echo "下载中断，10秒后重试..."
-              sleep 10
-            done
-          done
+          # 使用 -3 或 -4 压缩率，兼顾大小与内存，防止 GitHub 内存崩溃
+          docker save feadxus/comfyui-voxcpm | xz -T0 -3 > images.tar.xz
 
-      # 🗜️ 初步打包:将刚刚准备好的整套翻译模型目录打包成一个 tar 文件
-      - name: Pack Categorized Package
-        run: |
-          tar -cvf argos_translate_models.tar -C ./translate_models .
-
-      # 🤐 极限压缩:调用 XZ 算法并拉满多线程(-T0),把体积榨干到极致(生成 .tar.xz)
-      - name: Compress Package with XZ
-        run: |
-          xz -T0 -6 argos_translate_models.tar
-
-      # 📂 创建远程据点:去你的 Google Drive 上建一个叫 backup 的文件夹(如果不存在的话)
+      # 📂 创建远程据点
       - name: Create Google Drive Folder
         run: |
-          rclone mkdir fsxedx-Google-Drive:/backup || true
+          rclone mkdir feadxus-Google-Drive:/backup || true
 
-      # 🚀 冲向云端:把压缩好的离线包稳稳地同步上传到 Google Drive 的备份目录
+      # 🚀 冲向云端
       - name: Upload To Google Drive
         run: |
-          rclone copyto \
-            argos_translate_models.tar.xz \
-            fsxedx-Google-Drive:/backup/argos_translate_models.tar.xz
+          rclone copy \
+            images.tar.xz \
+            feadxus-Google-Drive:/backup/
 
-      # 🏁 终审盘点:列出网盘里的文件,亲眼确认离线包大小和状态都完全 OK
+      # 🏁 终审盘点
       - name: Verify Upload
         run: |
-          rclone lsf fsxedx-Google-Drive:/backup/
+          rclone lsf feadxus-Google-Drive:/backup/
