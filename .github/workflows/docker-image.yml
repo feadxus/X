@@ -1,4 +1,4 @@
-name: Free Download DroneMapper Data to Google Drive
+name: Free Download MicaSense Official Data to Google Drive
 
 on:
   workflow_dispatch:
@@ -21,7 +21,7 @@ jobs:
           docker-images: true
           swap: true
 
-      # 📡 搬运工上岗: 使用 Ubuntu 自带包管理器一键安装 rclone（极速且最稳妥）
+      # 📡 搬运工上岗: 使用 Ubuntu 自带包管理器一键安装 rclone
       - name: Install rclone
         run: |
           sudo apt-get update
@@ -35,28 +35,28 @@ jobs:
           mkdir -p ~/.config/rclone
           echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
 
-      # ⏬ 核心步骤：直接从 DroneMapper 的公开非 S3 镜像源免费拖取
-      - name: Download from Public Mirror (No AWS Needed)
+      # ⏬ 核心步骤：直接从 MicaSense 官方公开样本站拉取真正的 5 波段原始数据
+      - name: Download from MicaSense Public Sample Server
         run: |
-          echo "正在通过公开镜像源下载 MicaSense 示例数据..."
-          # 使用 wget 加上断点续传和自动重试，确保大文件在 GitHub 骨干网上稳妥下载
-          wget -c --tries=10 --retry-connrefused \
-            "https://dronemapper.com" \
-            -O ./RGBNET-MicaSense.zip
+          echo "正在下载 MicaSense 官方提供的 RedEdge 原始测试数据集..."
+          # 使用 wget -nv 保持日志清爽，若服务器返回错误则自动中止
+          wget -nv -c --tries=10 --retry-connrefused \
+            "https://micasense.com" \
+            -O ./rededge_raw_example1.zip
 
       # 🗜️ 强力解压并用 XZ 进行高比例流式打包
       - name: Decompress and Re-compress to XZ
         run: |
-          echo "正在解压原始 Zip..."
+          echo "正在确认文件格式并开始解压原始 Zip..."
           mkdir ./extracted_data
-          unzip -q RGBNET-MicaSense.zip -d ./extracted_data
+          unzip -q rededge_raw_example1.zip -d ./extracted_data
           
           echo "正在以高压缩比流式打包为 .tar.xz..."
-          tar -cf - -C ./extracted_data . | xz -T0 -3 > RGBNET-MicaSense.tar.xz
+          tar -cf - -C ./extracted_data . | xz -T0 -3 > rededge_raw_example1.tar.xz
           
           # 随手清理，防止撑爆 GitHub 虚拟机的磁盘
           rm -rf ./extracted_data
-          rm -f RGBNET-MicaSense.zip
+          rm -f rededge_raw_example1.zip
 
       # 📂 创建网盘远程备份据点
       - name: Create Google Drive Folder
@@ -67,7 +67,7 @@ jobs:
       - name: Upload To Google Drive
         run: |
           rclone copy \
-            RGBNET-MicaSense.tar.xz \
+            rededge_raw_example1.tar.xz \
             feadxus-Google-Drive:/backup/
 
       # 🏁 终审盘点
