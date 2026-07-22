@@ -1,14 +1,14 @@
-name: Ultimate Free Download Multispectral Data to Google Drive
+name: Clone ODM Dataset to Google Drive
 
 on:
   workflow_dispatch:
 
 jobs:
-  download-and-upload:
+  clone-and-upload:
     runs-on: ubuntu-latest
     steps:
       # ====================================================================
-      # 腾出空间! 清理不需要的系统残留，为大文件下载和压缩留出充足的硬空间
+      # 腾出空间! 清理不需要的系统残留，为 2.5GB 仓库的拉取和重压留出充足硬空间
       # ====================================================================
       - name: Free Disk Space (Ubuntu)
         uses: jlumbroso/free-disk-space@v1.3.1
@@ -35,34 +35,22 @@ jobs:
           mkdir -p ~/.config/rclone
           echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
 
-      # ⏬ 核心步骤：改用完全公开的开源社区多光谱数据集（无需 AWS 认证，绝不 404）
-      - name: Download Open Multispectral Dataset
-        run: |
-          echo "正在从开源遥感镜像站拉取标准的 MicaSense 多光谱测试数据..."
-          # 使用 --content-on-error=off 确保一旦服务器返回错误（如404）wget 会立刻自杀报错，绝不保存假文件
-          wget --content-on-error=off -c --tries=5 --retry-connrefused \
-            "https://githubusercontent.com/OpenDroneMap/WebODM/master/app/static/app/jsODM/test/data/micasense.zip" \
-            -O ./micasense_data.zip
-          
-          # 双重保险：检查下载下来的文件是不是真的 Zip，如果不是直接在这里熔断
-          if ! file ./micasense_data.zip | grep -q "Zip archive data"; then
-            echo "错误：下载的文件不是合法的 Zip 压缩包，可能是假链接！"
-            exit 1
-          fi
+      # 📥 降维打击：直接用 GitHub 官方动作把整个 2.5GB 的数据集仓库完整拉取下来
+      - name: Checkout Target Dataset Repository
+        uses: actions/checkout@v4
+        with:
+          repository: 'OpenDroneMap/odm_data_helenenschacht'
+          path: 'helenenschacht_dataset' # 下载到这个临时文件夹
 
-      # 🗜️ 强力解压并用 XZ 进行高比例流式打包
-      - name: Decompress and Re-compress to XZ
+      # 🗜️ 强力打包并用 XZ 进行高比例极限压缩
+      - name: Compress Dataset to XZ
         run: |
-          echo "正在解压开源数据集..."
-          mkdir ./extracted_data
-          unzip -q micasense_data.zip -d ./extracted_data
+          echo "正在将整盘端下来的数据集打包，并用 XZ 进行强力瘦身..."
+          # 打包文件夹，排除掉自带的 .git 隐藏目录（能进一步缩小体积）
+          tar --exclude='.git' -cf - helenenschacht_dataset | xz -T0 -3 > odm_data_helenenschacht.tar.xz
           
-          echo "正在以高压缩比流式打包为 .tar.xz..."
-          tar -cf - -C ./extracted_data . | xz -T0 -3 > micasense_data.tar.xz
-          
-          # 随手清理，防止撑爆 GitHub 虚拟机的磁盘
-          rm -rf ./extracted_data
-          rm -f micasense_data.zip
+          # 随手清理原始文件夹，释放磁盘，保持运行环境干净
+          rm -rf ./helenenschacht_dataset
 
       # 📂 创建网盘远程备份据点
       - name: Create Google Drive Folder
@@ -72,11 +60,13 @@ jobs:
       # 🚀 冲向云端
       - name: Upload To Google Drive
         run: |
+          echo "开始上传到 Google 网盘..."
           rclone copy \
-            micasense_data.tar.xz \
+            odm_data_helenenschacht.tar.xz \
             feadxus-Google-Drive:/backup/
 
       # 🏁 终审盘点
       - name: Verify Upload
         run: |
+          echo "网盘备份目录盘点："
           rclone lsf feadxus-Google-Drive:/backup/
