@@ -21,10 +21,11 @@ jobs:
           docker-images: true
           swap: true
 
-      # 📡 安装网盘传输工具 rclone
+      # 📡 搬运工上岗: 使用 Ubuntu 自带包管理器一键安装 rclone（极速且最稳妥）
       - name: Install rclone
         run: |
-          curl https://rclone.org | sudo bash
+          sudo apt-get update
+          sudo apt-get install -y rclone
 
       # 🔑 注入网盘钥匙: 把 Google Drive 凭证写入 rclone 配置文件
       - name: Setup rclone config
@@ -38,7 +39,7 @@ jobs:
       - name: Download from Public Mirror (No AWS Needed)
         run: |
           echo "正在通过公开镜像源下载 MicaSense 示例数据..."
-          # 使用 wget 加上断点续传和自动重试，确保 3GB 文件在 GitHub 骨干网上稳妥下载
+          # 使用 wget 加上断点续传和自动重试，确保大文件在 GitHub 骨干网上稳妥下载
           wget -c --tries=10 --retry-connrefused \
             "https://dronemapper.com" \
             -O ./RGBNET-MicaSense.zip
