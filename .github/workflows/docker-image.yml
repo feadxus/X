@@ -1,14 +1,14 @@
-name: Build and Push ComfyUI VoxCPM Docker
+name: Free Download DroneMapper Data to Google Drive
 
 on:
   workflow_dispatch:
 
 jobs:
-  build-and-push:
+  download-and-upload:
     runs-on: ubuntu-latest
     steps:
       # ====================================================================
-      # 腾出空间!通过卸载不需要的 Android、.NET 等工具,释放出约 30GB+ 空间
+      # 腾出空间! 清理不需要的系统残留，为大文件下载和压缩留出充足的硬空间
       # ====================================================================
       - name: Free Disk Space (Ubuntu)
         uses: jlumbroso/free-disk-space@v1.3.1
@@ -21,12 +21,12 @@ jobs:
           docker-images: true
           swap: true
 
-      # 📡 搬运工上岗:安装强大的网盘传输工具 rclone
+      # 📡 安装网盘传输工具 rclone
       - name: Install rclone
         run: |
-          curl https://rclone.org/install.sh | sudo bash
+          curl https://rclone.org | sudo bash
 
-      # 🔑 注入网盘钥匙:把 GitHub Secrets 里的 Google Drive 凭证写进配置文件
+      # 🔑 注入网盘钥匙: 把 Google Drive 凭证写入 rclone 配置文件
       - name: Setup rclone config
         env:
           RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FEADXUS_DRIVE }}
@@ -34,25 +34,30 @@ jobs:
           mkdir -p ~/.config/rclone
           echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
 
-      # 登录镜像仓库(这里以 Docker Hub 为例,换成你自己的 Secrets)
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      # ⏬ 下载镜像 
-      - name: Pull Docker Image (amd64)
+      # ⏬ 核心步骤：直接从 DroneMapper 的公开非 S3 镜像源免费拖取
+      - name: Download from Public Mirror (No AWS Needed)
         run: |
-          docker pull --platform linux/amd64 feadxus/comfyui-voxcpm
+          echo "正在通过公开镜像源下载 MicaSense 示例数据..."
+          # 使用 wget 加上断点续传和自动重试，确保 3GB 文件在 GitHub 骨干网上稳妥下载
+          wget -c --tries=10 --retry-connrefused \
+            "https://dronemapper.com" \
+            -O ./RGBNET-MicaSense.zip
 
-      # 🗜️ 一步到位流式压缩(省磁盘、省内存)
-      - name: Save and Compress Docker Image
+      # 🗜️ 强力解压并用 XZ 进行高比例流式打包
+      - name: Decompress and Re-compress to XZ
         run: |
-          # 使用 -3 或 -4 压缩率，兼顾大小与内存，防止 GitHub 内存崩溃
-          docker save feadxus/comfyui-voxcpm | xz -T0 -3 > images.tar.xz
+          echo "正在解压原始 Zip..."
+          mkdir ./extracted_data
+          unzip -q RGBNET-MicaSense.zip -d ./extracted_data
+          
+          echo "正在以高压缩比流式打包为 .tar.xz..."
+          tar -cf - -C ./extracted_data . | xz -T0 -3 > RGBNET-MicaSense.tar.xz
+          
+          # 随手清理，防止撑爆 GitHub 虚拟机的磁盘
+          rm -rf ./extracted_data
+          rm -f RGBNET-MicaSense.zip
 
-      # 📂 创建远程据点
+      # 📂 创建网盘远程备份据点
       - name: Create Google Drive Folder
         run: |
           rclone mkdir feadxus-Google-Drive:/backup || true
@@ -61,7 +66,7 @@ jobs:
       - name: Upload To Google Drive
         run: |
           rclone copy \
-            images.tar.xz \
+            RGBNET-MicaSense.tar.xz \
             feadxus-Google-Drive:/backup/
 
       # 🏁 终审盘点
