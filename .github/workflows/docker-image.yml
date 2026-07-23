@@ -14,7 +14,7 @@ jobs:
       # 2. 🦙 安装官方 Ollama 环境
       - name: Install Ollama
         run: |
-          curl -fsSL https://ollama.com | sh
+          curl -fsSL https://ollama.com/install.sh | sh
 
       # 3. ⏬ 携带鉴权下载你指定的 GGUF 模型文件
       # 💡 老师帮你改了这里：加入了 HF_TOKEN 鉴权，并精确定位到了 Q4_K_M 版本的 GGUF 链接
