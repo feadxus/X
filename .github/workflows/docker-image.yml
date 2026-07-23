@@ -3,62 +3,182 @@ name: Build and Push Flux2-Klein to Ollama
 on:
   workflow_dispatch:
 
+
 jobs:
   build-and-push-ollama:
+
     runs-on: ubuntu-latest
+
+
     steps:
+
       # 1. 📥 检出代码
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. 🦙 安装官方 Ollama 环境
+
+
+      # 2. 🦙 安装 Ollama
       - name: Install Ollama
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
 
-      # 3. ⏬ 携带鉴权下载你指定的 GGUF 模型文件
-      # 💡 老师帮你改了这里：加入了 HF_TOKEN 鉴权，并精确定位到了 Q4_K_M 版本的 GGUF 链接
+          echo "✅ Ollama version:"
+          ollama --version
+
+
+
+      # 3. ⏬ 下载 GGUF 模型
       - name: Download GGUF from Hugging Face
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: |
-          mkdir -p ./model_dir
-          echo "📥 开始下载..."
-          curl -L \
-          -H "Authorization: Bearer $HF_TOKEN" \
-          -o ./model_dir/flux2-klein-9b-uncensored-q4_k_m.gguf \
-          "https://huggingface.co/ponpoke/flux2-klein-9b-uncensored-text-encoder/resolve/main/flux2-klein-9b-uncensored-q4_k_m.gguf"
 
-      # 4. 📝 自动创建专属的 Modelfile 配置文件
-      # 💡 老师帮你改了这里：将基础权重指向刚刚下好的特定文件名
+        run: |
+
+          mkdir -p ./model_dir
+
+
+          echo "📥 下载 GGUF..."
+
+          curl -L \
+            -H "Authorization: Bearer ${HF_TOKEN}" \
+            -o ./model_dir/flux2-klein-9b-uncensored-q4_k_m.gguf \
+            "https://huggingface.co/ponpoke/flux2-klein-9b-uncensored-text-encoder/resolve/main/flux2-klein-9b-uncensored-q4_k_m.gguf"
+
+
+
+          echo "🔍 文件检查"
+
+          ls -lh ./model_dir
+
+
+
+          if [ ! -s ./model_dir/flux2-klein-9b-uncensored-q4_k_m.gguf ]; then
+              echo "❌ GGUF 文件不存在或为空"
+              exit 1
+          fi
+
+
+          echo "✅ GGUF 下载完成"
+
+
+
+      # 4. 📝 创建 Ollama Modelfile
       - name: Create Modelfile
         run: |
-          cat << 'EOF' > ./Modelfile
+
+          cat > Modelfile <<'EOF'
+
           FROM ./model_dir/flux2-klein-9b-uncensored-q4_k_m.gguf
-          
-          # 你可以根据需要在此处加入特定的人设或参数限制
+
           PARAMETER temperature 0.7
+
           PARAMETER stop "<|im_end|>"
+
           EOF
 
-      # 5. 🏗️ 在后台启动 Ollama 服务并开始本地编译
-      # 💡 老师帮你改了这里：模型名称修改为更贴切的 flux2-klein-9b
-      - name: Build Local Ollama Model
-        env:
-          OLLAMA_USERNAME: ${{ secrets.OLLAMA_USERNAME }}
-        run: |
-          ollama serve &
-          sleep 5
-          
-          echo "🏗️ 正在将 GGUF 文件导入并编译为 Ollama 内部模型..."
-          ollama create ${OLLAMA_USERNAME}/flux2-klein-9b -f ./Modelfile
 
-      # 6. 🚀 一键冲向云端 Ollama 官方仓库
-      - name: Push Model to Ollama Registry
+          echo "📄 Modelfile 内容:"
+          cat Modelfile
+
+
+
+
+      # 5. 🏗️ 启动 Ollama 并创建模型
+      - name: Build Ollama Model
         env:
-          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
           OLLAMA_USERNAME: ${{ secrets.OLLAMA_USERNAME }}
+
         run: |
-          echo "🚀 开始推送到你的 Ollama 社区账户..."
-          ollama push ${OLLAMA_USERNAME}/flux2-klein-9b
-          echo "🏁 推送成功！"
+
+
+          if [ -z "$OLLAMA_USERNAME" ]; then
+              echo "❌ 缺少 OLLAMA_USERNAME"
+              exit 1
+          fi
+
+
+
+          echo "🔍 检查 Ollama 服务"
+
+
+          if ! curl -s http://127.0.0.1:11434/api/version >/dev/null
+          then
+
+              echo "🦙 启动 Ollama"
+
+              ollama serve > ollama.log 2>&1 &
+
+              OLLAMA_PID=$!
+
+              echo "OLLAMA PID=$OLLAMA_PID"
+
+
+              sleep 8
+
+          fi
+
+
+
+          echo "🏗️ 创建模型"
+
+
+          ollama create \
+            ${OLLAMA_USERNAME}/flux2-klein-9b \
+            -f ./Modelfile
+
+
+
+          echo "✅ 模型创建完成"
+
+
+          ollama list
+
+
+
+
+      # 6. 🔐 登录 Ollama Hub
+      - name: Login Ollama
+        env:
+          OLLAMA_USERNAME: ${{ secrets.OLLAMA_USERNAME }}
+          OLLAMA_PASSWORD: ${{ secrets.OLLAMA_PASSWORD }}
+
+        run: |
+
+
+          if [ -z "$OLLAMA_PASSWORD" ]; then
+              echo "❌ 缺少 Ollama 密码"
+              exit 1
+          fi
+
+
+
+          echo "🔐 登录 Ollama"
+
+
+          ollama login <<EOF
+          $OLLAMA_USERNAME
+          $OLLAMA_PASSWORD
+          EOF
+
+
+
+      # 7. 🚀 推送模型
+      - name: Push Model
+        env:
+          OLLAMA_USERNAME: ${{ secrets.OLLAMA_USERNAME }}
+
+        run: |
+
+
+          MODEL_NAME="${OLLAMA_USERNAME}/flux2-klein-9b"
+
+
+          echo "🚀 推送 ${MODEL_NAME}"
+
+
+          ollama push "$MODEL_NAME"
+
+
+
+          echo "🏁 推送完成"
