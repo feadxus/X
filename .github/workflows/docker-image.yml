@@ -56,5 +56,5 @@ jobs:
           OLLAMA_USERNAME: ${{ secrets.OLLAMA_USERNAME }}
         run: |
           echo "🚀 开始推送到你的 Ollama 社区账户..."
-          ollama push ${OLLAMA_USERNAME}/flux2-klein-9b
+          ollama push feadxus/flux2-klein-9b
           echo "🏁 推送成功！"
