@@ -1,97 +1,58 @@
-name: Build and Push Flux2-Klein to Ollama
+name: Build and Push Model to Ollama
 
 on:
   workflow_dispatch:
 
 jobs:
-  build-and-push-ollama:
+  build-and-push:
     runs-on: ubuntu-latest
     steps:
-      # ====================================================================
-      # 腾出空间!通过卸载不需要的 Android、.NET 等工具,释放出约 30GB+ 空间
-      # ====================================================================
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          tool-cache: true
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap: true
-
-      - name: 查看清理前磁盘空间
-        run: df -h /
-
-      - name: 删除 .NET SDK(/usr/share/dotnet)
-        run: sudo rm -rf /usr/share/dotnet
-      - name: 删除 Android SDK(/usr/local/lib/android)
-        run: sudo rm -rf /usr/local/lib/android
-      - name: 删除语言工具缓存(/opt/hostedtoolcache)
-        run: sudo rm -rf /opt/hostedtoolcache
-      - name: 删除 PowerShell(/usr/local/share/powershell)
-        run: sudo rm -rf /usr/local/share/powershell
-      - name: 删除 Chromium(/usr/local/share/chromium)
-        run: sudo rm -rf /usr/local/share/chromium
-      - name: 删除 Swift 工具链(/usr/share/swift)
-        run: sudo rm -rf /usr/share/swift
-      - name: 删除 Java JDK(/usr/lib/jvm)
-        run: sudo rm -rf /usr/lib/jvm
-      - name: 删除 Azure CLI 工具(/opt/az)
-        run: sudo rm -rf /opt/az
-      - name: 删除微软工具链(/opt/microsoft)
-        run: sudo rm -rf /opt/microsoft
-
-      - name: 查看清理后磁盘空间
-        run: df -h /
-
-      # 1. 📥 检出代码
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. 🦙 安装官方 Ollama 环境 (已修复为正确的 install.sh 脚本地址)
+      # 1. 安装 Ollama
       - name: Install Ollama
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
 
-      # 3. ⏬ 携带鉴权克隆整个 Hugging Face 模型仓库（包含 GGUF 和所有配置文件）
-      - name: Clone Hugging Face Repository
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: |
-          echo "📥 开始完整克隆 Hugging Face 仓库..."
-          # 配置 git 允许通过 token 认证克隆私有/受限仓库
-          git clone https://x-access-token:${HF_TOKEN}@huggingface.co/ponpoke/flux2-klein-9b-uncensored-text-encoder ./model_dir
-          
-          # 检查目录下的文件
-          echo "📊 检查下载的文件列表："
-          ls -lh ./model_dir
-
-      # 4. 📝 自动创建专属的 Modelfile 配置文件
-      - name: Create Modelfile
-        run: |
-          cat << 'EOF' > ./Modelfile
-          FROM ./model_dir/flux2-klein-9b-uncensored-q4_k_m.gguf
-          
-          PARAMETER temperature 0.7
-          PARAMETER stop "<|im_end|>"
-          EOF
-
-      # 5. 🏗️ 在后台启动 Ollama 服务并开始本地编译
-      - name: Build Local Ollama Model
+      # 2. 启动后台服务
+      - name: Start Ollama Service
         run: |
           ollama serve &
           sleep 5
+
+      # 3. 下载你的 GGUF 文件 (带上你的 HF_TOKEN)
+      - name: Download GGUF
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          mkdir -p ./model_dir
+          curl -f -L -H "Authorization: Bearer $HF_TOKEN" \
+            -o ./model_dir/flux2-klein.gguf \
+            "https://huggingface.co/ponpoke/flux2-klein-9b-uncensored-text-encoder/resolve/main/flux2-klein-9b-uncensored-q4_k_m.gguf"
+
+      # 4. 创建 Modelfile
+      - name: Create Modelfile
+        run: |
+          cat << 'EOF' > ./Modelfile
+          FROM ./model_dir/flux2-klein.gguf
+          PARAMETER temperature 0.7
+          EOF
           
-          echo "🏗️ 正在将 GGUF 文件导入并编译为 Ollama 内部模型..."
           ollama create feadxus/flux2-klein-9b -f ./Modelfile
 
-      # 6. 🚀 一键冲向云端 Ollama 官方仓库
-      - name: Push Model to Ollama Registry
+      # 5. 关键：在 CI 中登录 Ollama 账户
+      # 💡 你需要在 GitHub Secrets 里配置 OLLAMA_EMAIL 和 OLLAMA_PASSWORD
+      - name: Login to Ollama
         env:
-          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+          OLLAMA_EMAIL: ${{ secrets.OLLAMA_EMAIL }}
+          OLLAMA_PASSWORD: ${{ secrets.OLLAMA_PASSWORD }}
         run: |
-          echo "🚀 开始推送到你的 Ollama 社区账户..."
+          # 通过非交互式方式向 Ollama 提交登录凭证
+          ollama login --username "$OLLAMA_EMAIL" --password "$OLLAMA_PASSWORD"
+          # 或者部分版本支持环境变量直接传递
+
+      # 6. 推送到云端
+      - name: Push to Ollama Registry
+        run: |
           ollama push feadxus/flux2-klein-9b
-          echo "🏁 推送成功！"
