@@ -1,72 +1,63 @@
-name: Clone ODM Dataset to Google Drive
+name: Build and Push Flux2-Klein to Ollama
 
 on:
   workflow_dispatch:
 
 jobs:
-  clone-and-upload:
+  build-and-push-ollama:
     runs-on: ubuntu-latest
     steps:
-      # ====================================================================
-      # 腾出空间! 清理不需要的系统残留，为 2.5GB 仓库的拉取和重压留出充足硬空间
-      # ====================================================================
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          tool-cache: true
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap: true
-
-      # 📡 搬运工上岗: 使用 Ubuntu 自带包管理器一键安装 rclone
-      - name: Install rclone
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y rclone
-
-      # 🔑 注入网盘钥匙: 把 Google Drive 凭证写入 rclone 配置文件
-      - name: Setup rclone config
-        env:
-          RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FEADXUS_DRIVE }}
-        run: |
-          mkdir -p ~/.config/rclone
-          echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
-
-      # 📥 降维打击：直接用 GitHub 官方动作把整个 2.5GB 的数据集仓库完整拉取下来
-      - name: Checkout Target Dataset Repository
+      # 1. 📥 检出代码
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          repository: 'OpenDroneMap/odm_data_helenenschacht'
-          path: 'helenenschacht_dataset' # 下载到这个临时文件夹
 
-      # 🗜️ 强力打包并用 XZ 进行高比例极限压缩
-      - name: Compress Dataset to XZ
+      # 2. 🦙 安装官方 Ollama 环境
+      - name: Install Ollama
         run: |
-          echo "正在将整盘端下来的数据集打包，并用 XZ 进行强力瘦身..."
-          # 打包文件夹，排除掉自带的 .git 隐藏目录（能进一步缩小体积）
-          tar --exclude='.git' -cf - helenenschacht_dataset | xz -T0 -3 > odm_data_helenenschacht.tar.xz
+          curl -fsSL https://ollama.com | sh
+
+      # 3. ⏬ 携带鉴权下载你指定的 GGUF 模型文件
+      # 💡 老师帮你改了这里：加入了 HF_TOKEN 鉴权，并精确定位到了 Q4_K_M 版本的 GGUF 链接
+      - name: Download GGUF from Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          mkdir -p ./model_dir
+          echo "📥 开始下载..."
+          curl -L -H "Authorization: Bearer $HF_TOKEN" \
+            -o ./model_dir/flux2-klein-9b-uncensored-q4_k_m.gguf \
+            "https://huggingface.co/ponpoke/flux2-klein-9b-uncensored-text-encoder/blob/main/flux2-klein-9b-uncensored-q4_k_m.gguf"
+
+      # 4. 📝 自动创建专属的 Modelfile 配置文件
+      # 💡 老师帮你改了这里：将基础权重指向刚刚下好的特定文件名
+      - name: Create Modelfile
+        run: |
+          cat << 'EOF' > ./Modelfile
+          FROM ./model_dir/flux2-klein-9b-uncensored-q4_k_m.gguf
           
-          # 随手清理原始文件夹，释放磁盘，保持运行环境干净
-          rm -rf ./helenenschacht_dataset
+          # 你可以根据需要在此处加入特定的人设或参数限制
+          PARAMETER temperature 0.7
+          PARAMETER stop "<|im_end|>"
+          EOF
 
-      # 📂 创建网盘远程备份据点
-      - name: Create Google Drive Folder
+      # 5. 🏗️ 在后台启动 Ollama 服务并开始本地编译
+      # 💡 老师帮你改了这里：模型名称修改为更贴切的 flux2-klein-9b
+      - name: Build Local Ollama Model
+        env:
+          OLLAMA_USERNAME: ${{ secrets.OLLAMA_USERNAME }}
         run: |
-          rclone mkdir feadxus-Google-Drive:/backup || true
+          ollama serve &
+          sleep 5
+          
+          echo "🏗️ 正在将 GGUF 文件导入并编译为 Ollama 内部模型..."
+          ollama create ${OLLAMA_USERNAME}/flux2-klein-9b -f ./Modelfile
 
-      # 🚀 冲向云端
-      - name: Upload To Google Drive
+      # 6. 🚀 一键冲向云端 Ollama 官方仓库
+      - name: Push Model to Ollama Registry
+        env:
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+          OLLAMA_USERNAME: ${{ secrets.OLLAMA_USERNAME }}
         run: |
-          echo "开始上传到 Google 网盘..."
-          rclone copy \
-            odm_data_helenenschacht.tar.xz \
-            feadxus-Google-Drive:/backup/
-
-      # 🏁 终审盘点
-      - name: Verify Upload
-        run: |
-          echo "网盘备份目录盘点："
-          rclone lsf feadxus-Google-Drive:/backup/
+          echo "🚀 开始推送到你的 Ollama 社区账户..."
+          ollama push ${OLLAMA_USERNAME}/flux2-klein-9b
+          echo "🏁 推送成功！"
