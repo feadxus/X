@@ -11,13 +11,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. 🦙 安装官方 Ollama 环境
+      # 2. 🦙 安装官方 Ollama 环境 (已修复为正确的 install.sh 脚本地址)
       - name: Install Ollama
         run: |
-          curl -fsSL https://ollama.com | sh
+          curl -fsSL https://ollama.com/install.sh | sh
 
       # 3. ⏬ 携带鉴权下载你指定的 GGUF 模型文件
-      # 💡 已将 blob 修正为 resolve，使其成为真正的文件直链
       - name: Download GGUF from Hugging Face
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
@@ -25,14 +24,14 @@ jobs:
           mkdir -p ./model_dir
           echo "📥 开始下载 flux2-klein-9b-uncensored-q4_k_m.gguf..."
           curl -L -H "Authorization: Bearer $HF_TOKEN" \
-            -o ./model_dir/flux2-klein-9b-uncensored-q4_k_m.gguf \
+            -o ./model_dir/flux2-klein.gguf \
             "https://huggingface.co/ponpoke/flux2-klein-9b-uncensored-text-encoder/resolve/main/flux2-klein-9b-uncensored-q4_k_m.gguf"
 
       # 4. 📝 自动创建专属的 Modelfile 配置文件
       - name: Create Modelfile
         run: |
           cat << 'EOF' > ./Modelfile
-          FROM ./model_dir/flux2-klein-9b-uncensored-q4_k_m.gguf
+          FROM ./model_dir/flux2-klein.gguf
           
           # 你可以根据需要在此处加入特定的人设或参数限制
           PARAMETER temperature 0.7
