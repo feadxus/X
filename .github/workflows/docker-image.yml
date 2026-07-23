@@ -16,17 +16,22 @@ jobs:
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
 
-      # 3. ⏬ 携带鉴权下载你指定的 GGUF 模型文件
+      # 3. ⏬ 携带鉴权下载你指定的 GGUF 模型文件，并验证是否下载成功
       - name: Download GGUF from Hugging Face
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           mkdir -p ./model_dir
           echo "📥 开始下载 flux2-klein-9b-uncensored-q4_k_m.gguf..."
-          curl -L -H "Authorization: Bearer $HF_TOKEN" \
+          
+          # 使用 -f 参数：如果 HTTP 状态码 >= 400（如 404 或 401），curl 会直接报错退出，不会把错误网页存成文件
+          curl -f -L -H "Authorization: Bearer $HF_TOKEN" \
             -o ./model_dir/flux2-klein.gguf \
             "https://huggingface.co/ponpoke/flux2-klein-9b-uncensored-text-encoder/resolve/main/flux2-klein-9b-uncensored-q4_k_m.gguf"
-
+            
+          # 检查文件大小，防止下载下来的是个几十字节的错误 HTML 页面
+          echo "📊 检查下载的文件大小："
+          ls -lh ./model_dir/flux2-klein.gguf
       # 4. 📝 自动创建专属的 Modelfile 配置文件
       - name: Create Modelfile
         run: |
