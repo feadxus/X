@@ -40,20 +40,17 @@ jobs:
 
       # 5. 🏗️ 在后台启动 Ollama 服务并开始本地编译
       - name: Build Local Ollama Model
-        env:
-          OLLAMA_USERNAME: ${{ secrets.OLLAMA_USERNAME }}
         run: |
           ollama serve &
           sleep 5
           
           echo "🏗️ 正在将 GGUF 文件导入并编译为 Ollama 内部模型..."
-          ollama create ${OLLAMA_USERNAME}/flux2-klein-9b -f ./Modelfile
+          ollama create feadxus/flux2-klein-9b -f ./Modelfile
 
       # 6. 🚀 一键冲向云端 Ollama 官方仓库
       - name: Push Model to Ollama Registry
         env:
           OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
-          OLLAMA_USERNAME: ${{ secrets.OLLAMA_USERNAME }}
         run: |
           echo "🚀 开始推送到你的 Ollama 社区账户..."
           ollama push feadxus/flux2-klein-9b
