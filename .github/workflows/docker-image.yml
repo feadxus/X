@@ -24,9 +24,10 @@ jobs:
         run: |
           mkdir -p ./model_dir
           echo "📥 开始下载..."
-          curl -L -H "Authorization: Bearer $HF_TOKEN" \
-            -o ./model_dir/flux2-klein-9b-uncensored-q4_k_m.gguf \
-            "https://huggingface.co/ponpoke/flux2-klein-9b-uncensored-text-encoder/blob/main/flux2-klein-9b-uncensored-q4_k_m.gguf"
+          curl -L \
+          -H "Authorization: Bearer $HF_TOKEN" \
+          -o ./model_dir/flux2-klein-9b-uncensored-q4_k_m.gguf \
+          "https://huggingface.co/ponpoke/flux2-klein-9b-uncensored-text-encoder/resolve/main/flux2-klein-9b-uncensored-q4_k_m.gguf"
 
       # 4. 📝 自动创建专属的 Modelfile 配置文件
       # 💡 老师帮你改了这里：将基础权重指向刚刚下好的特定文件名
