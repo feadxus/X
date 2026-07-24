@@ -52,8 +52,7 @@ jobs:
         run: |
           echo "📦 打包 Ollama 模型库..."
           # 打包整个 models 目录,后续解压回 ~/.ollama/models 即可免配置开箱即用
-          sudo tar -czvf ollama_models.tar.gz -C /root/.ollama models
-          echo $HOME/.ollama
+          sudo tar -czvf ollama_models.tar.gz -C $HOME/.ollama models
 
       # 4️⃣. 🛠️ 安装并配置 Rclone 上传工具
       - name: Install Rclone
