@@ -7,33 +7,6 @@ jobs:
   download-and-upload:
     runs-on: ubuntu-latest
     steps:
-      # ====================================================================
-      # 1️⃣. 腾出空间(保留清理逻辑,防止几十 GB 的模型文件挤爆 Runner)
-      # ====================================================================
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          tool-cache: true
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap: true
-
-      - name: 清理多余预装软件
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/hostedtoolcache
-          sudo rm -rf /usr/local/share/powershell
-          sudo rm -rf /usr/local/share/chromium
-          sudo rm -rf /usr/share/swift
-          sudo rm -rf /usr/lib/jvm
-          sudo rm -rf /opt/az
-          sudo rm -rf /opt/microsoft
-          df -h /
-
       # 2️⃣. 📥 安装 Ollama
       - name: Install Ollama
         run: |
@@ -91,6 +64,6 @@ jobs:
       - name: Upload Model to Cloud Drive
         run: |
           echo "🚀 开始上传到网盘..."
-          rclone copy ./ollama_models.tar.gz mydrive:Models/ --progress
+          rclone copy ./ollama_models.tar.gz feadxus-Google-Drive:Models/ --progress
 
           echo "🏁 上传成功!"
