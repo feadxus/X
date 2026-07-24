@@ -78,14 +78,18 @@ jobs:
         run: |
           curl https://rclone.org/install.sh | sudo bash
 
-      # 5️⃣. ☁️ 上传到网盘
-      - name: Upload Model to Cloud Drive
+
+      # 🔑 注入网盘钥匙:把 GitHub Secrets 里的 Google Drive 凭证写进配置文件
+      - name: Setup rclone config
         env:
-          RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
+          RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FEADXUS_DRIVE }}
         run: |
           mkdir -p ~/.config/rclone
-          echo "$RCLONE_CONFIG" > ~/.config/rclone/rclone.conf
+          echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
 
+      # 5️⃣. ☁️ 上传到网盘
+      - name: Upload Model to Cloud Drive
+        run: |
           echo "🚀 开始上传到网盘..."
           rclone copy ./ollama_models.tar.gz mydrive:Models/ --progress
 
