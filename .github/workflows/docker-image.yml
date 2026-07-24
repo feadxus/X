@@ -45,8 +45,7 @@ jobs:
           sleep 5
           
           echo "📥 正在通过 Ollama 拉取 HF 模型..."
-          # 修正 Tag 为 Q2_K 格式（也可根据需求改成 Q3_K_M 或 Q4_K_M）
-          ollama pull hf.co/cjpais/llava-1.6-mistral-7b-gguf:Q2_K
+          ollama run hf.co/cjpais/Qwen3-VL-4b-Heretic-GGUF:Q6_K
 
       # 📦 打包 Ollama 模型库
       - name: Package Models Directory
