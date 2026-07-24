@@ -40,19 +40,18 @@ jobs:
           curl -fsSL https://ollama.com/install.sh | sh
 
       # 3️⃣. ⏬ 下载模型
-      - name: Start Ollama Service & Pull Model
+      - name: Pull Ollama Model
         run: |
-          # 后台启动服务
-          ollama serve &
           sleep 5
           
-          # 使用 pull 只下载不进入交互
           echo "📥 正在通过 Ollama 拉取 HF 模型..."
-          ollama pull hf.co/cjpais/llava-1.6-mistral-7b-gguf:llava-v1.6-mistral-7b.Q2_K.gguf
+          # 修正 Tag 为 Q2_K 格式（也可根据需求改成 Q3_K_M 或 Q4_K_M）
+          ollama pull hf.co/cjpais/llava-1.6-mistral-7b-gguf:Q2_K
 
       # 📦 打包 Ollama 模型库
       - name: Package Models Directory
         run: |
+          echo "📦 打包 Ollama 模型库..."
           # 打包整个 models 目录,后续解压回 ~/.ollama/models 即可免配置开箱即用
           tar -czvf ollama_models.tar.gz -C /root/.ollama models
 
@@ -67,14 +66,12 @@ jobs:
       # 5️⃣. ☁️ 上传到网盘
       - name: Upload Model to Cloud Drive
         env:
-          # 在 GitHub Secrets 中提前存好 rclone 的配置文件内容 (RCLONE_CONFIG)
           RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
         run: |
           mkdir -p ~/.config/rclone
           echo "$RCLONE_CONFIG" > ~/.config/rclone/rclone.conf
 
           echo "🚀 开始上传到网盘..."
-          # 将 ./model_dir 目录上传到你在 rclone.conf 中配置的网盘 (假设配置名为 mydrive,目标文件夹名为 Models)
           rclone copy ./ollama_models.tar.gz mydrive:Models/ --progress
 
           echo "🏁 上传成功!"
