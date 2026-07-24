@@ -47,12 +47,31 @@ jobs:
           echo "📥 正在通过 Ollama 拉取 HF 模型..."
           ollama run hf.co/DreamFast/Qwen3-VL-4b-Heretic-GGUF:Q6_K
 
-      # 📦 打包 Ollama 模型库
+      # 📦 打包 Ollama 模型库(自动定位实际路径)
       - name: Package Models Directory
         run: |
-          echo "📦 打包 Ollama 模型库..."
-          # 打包整个 models 目录,后续解压回 ~/.ollama/models 即可免配置开箱即用
-          sudo tar -czvf ollama_models.tar.gz -C $HOME/.ollama models
+          echo "📦 查找并打包 Ollama 模型库..."
+          
+          # 1. 自动寻找名为 'manifests' 或 'blobs' 的 models 目录
+          OLLAMA_DIR=$(sudo find / -name "manifests" -type d 2>/dev/null | grep ".ollama/models" | head -n 1 | sed 's/\/models\/manifests//')
+          
+          if [ -z "$OLLAMA_DIR" ]; then
+            # 备用搜索：直接定位 .ollama 目录
+            OLLAMA_DIR=$(sudo find /usr /root /var $HOME -name ".ollama" -type d 2>/dev/null | head -n 1)
+          fi
+
+          echo "📍 找到 Ollama 模型实际存放目录: $OLLAMA_DIR"
+
+          # 2. 执行打包
+          if [ -n "$OLLAMA_DIR" ] && [ -d "$OLLAMA_DIR/models" ]; then
+            sudo tar -czvf ollama_models.tar.gz -C "$OLLAMA_DIR" models
+            sudo chmod 666 ollama_models.tar.gz
+            echo "✅ 打包成功！"
+          else
+            echo "❌ 仍未找到 models 目录，列出可能位置以排查："
+            sudo find / -name "blobs" 2>/dev/null
+            exit 1
+          fi
 
       # 4️⃣. 🛠️ 安装并配置 Rclone 上传工具
       - name: Install Rclone
