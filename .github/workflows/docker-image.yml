@@ -18,7 +18,7 @@ jobs:
           sleep 5
           
           echo "📥 正在通过 Ollama 拉取 HF 模型..."
-          ollama pull hf.co/DreamFast/Qwen3-VL-4b-Heretic-GGUF:Q6_K
+          ollama run hf.co/noctrex/Huihui-Qwen3-VL-4B-Instruct-abliterated-GGUF:Q6_K
 
       # 📦 打包 Ollama 模型库(自动定位实际路径)
       - name: Package Models Directory
