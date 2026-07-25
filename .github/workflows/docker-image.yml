@@ -12,22 +12,13 @@ jobs:
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
 
-      # 3️⃣. ⏬ 下载模型(使用 pull 避免交互式卡住,并检测服务是否就绪)
+      # 3️⃣. ⏬ 下载模型(使用 pull 避免交互式卡住)
       - name: Pull Ollama Model
         run: |
-          echo "⏳ 等待 Ollama 后台服务就绪..."
-          # 循环检测本地 11434 端口，最多等待 30 秒
-          for i in {1..30}; do
-            if curl -s http://127.0.0 > /dev/null; then
-              echo "✅ Ollama 服务已成功运行!"
-              break
-            fi
-            echo "正在重试 ($i/30)..."
-            sleep 1
-          done
-
+          sleep 5
+          
           echo "📥 正在通过 Ollama 拉取 HF 模型..."
-          ollama run hf.co/MaziyarPanahi/Llama-3.2-3B-Instruct-uncensored-GGUF:Llama-3.2-3B-Instruct-uncensored.Q8_0
+          ollama pull hf.co/MaziyarPanahi/Llama-3.2-3B-Instruct-uncensored-GGUF:Llama-3.2-3B-Instruct-uncensored.Q8_0
 
       # 📦 打包 Ollama 模型库(自动定位实际路径)
       - name: Package Models Directory
@@ -46,8 +37,8 @@ jobs:
 
           # 2. 执行打包
           if [ -n "$OLLAMA_DIR" ] && [ -d "$OLLAMA_DIR/models" ]; then
-            sudo tar -czvf ollama_models1.tar.gz -C "$OLLAMA_DIR" models
-            sudo chmod 666 ollama_models1.tar.gz
+            sudo tar -czvf ollama_models.tar.gz -C "$OLLAMA_DIR" models
+            sudo chmod 666 ollama_models.tar.gz
             echo "✅ 打包成功！"
           else
             echo "❌ 仍未找到 models 目录,列出可能位置以排查："
@@ -73,6 +64,6 @@ jobs:
       - name: Upload Model to Cloud Drive
         run: |
           echo "🚀 开始上传到网盘..."
-          rclone copy ./ollama_models1.tar.gz feadxus-Google-Drive:Models/ --progress
+          rclone copy ./ollama_models.tar.gz feadxus-Google-Drive:Models/ --progress
 
           echo "🏁 上传成功!"
