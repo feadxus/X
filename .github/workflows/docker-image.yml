@@ -64,6 +64,6 @@ jobs:
       - name: Upload Model to Cloud Drive
         run: |
           echo "🚀 开始上传到网盘..."
-          rclone copy ./ollama_models.tar1.gz feadxus-Google-Drive:Models/ --progress
+          rclone copy ./ollama_models1.tar.gz feadxus-Google-Drive:Models/ --progress
 
           echo "🏁 上传成功!"
