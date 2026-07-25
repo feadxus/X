@@ -7,10 +7,25 @@ jobs:
   download-and-upload:
     runs-on: ubuntu-latest
     steps:
-      # 2️⃣. 📥 安装 Ollama
-      - name: Install Ollama
+      # 2️⃣. 📥 安装并启动 Ollama 后台服务
+      - name: Install and Start Ollama
         run: |
+          echo "📥 安装 Ollama..."
           curl -fsSL https://ollama.com/install.sh | sh
+
+          echo "🚀 在后台启动 Ollama 服务..."
+          nohup ollama serve > ollama.log 2>&1 &
+
+          echo "⏳ 等待 Ollama 后台服务就绪..."
+          for i in {1..30}; do
+            # 注意：此处必须使用正确端口 11434
+            if curl -s http://127.0.0.1:11434/api/tags > /dev/null; then
+              echo "✅ Ollama 服务已成功运行!"
+              break
+            fi
+            echo "正在重试 ($i/30)..."
+            sleep 1
+          done
 
       # 3️⃣. ⏬ 下载模型(使用 pull 避免交互式卡住)
       - name: Pull Ollama Model
