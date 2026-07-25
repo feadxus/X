@@ -37,8 +37,8 @@ jobs:
 
           # 2. 执行打包
           if [ -n "$OLLAMA_DIR" ] && [ -d "$OLLAMA_DIR/models" ]; then
-            sudo tar -czvf ollama_models.tar.gz -C "$OLLAMA_DIR" models
-            sudo chmod 666 ollama_models.tar.gz
+            sudo tar -czvf ollama_models1.tar.gz -C "$OLLAMA_DIR" models
+            sudo chmod 666 ollama_models1.tar.gz
             echo "✅ 打包成功！"
           else
             echo "❌ 仍未找到 models 目录,列出可能位置以排查："
@@ -64,6 +64,6 @@ jobs:
       - name: Upload Model to Cloud Drive
         run: |
           echo "🚀 开始上传到网盘..."
-          rclone copy ./ollama_models.tar.gz feadxus-Google-Drive:Models/ --progress
+          rclone copy ./ollama_models.tar1.gz feadxus-Google-Drive:Models/ --progress
 
           echo "🏁 上传成功!"
