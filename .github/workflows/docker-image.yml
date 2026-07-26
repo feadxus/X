@@ -18,7 +18,7 @@ jobs:
 
           echo "⏳ 等待 Ollama 后台服务就绪..."
           for i in {1..30}; do
-            # 注意：此处必须使用正确端口 11434
+            # 注意:此处必须使用正确端口 11434
             if curl -s http://127.0.0.1:11434/api/tags > /dev/null; then
               echo "✅ Ollama 服务已成功运行!"
               break
@@ -33,7 +33,7 @@ jobs:
           sleep 5
           
           echo "📥 正在通过 Ollama 拉取 HF 模型..."
-          ollama pull hf.co/MaziyarPanahi/Llama-3.2-3B-Instruct-uncensored-GGUF:Q8_0
+          ollama pull hf.co/BennyDaBall/Qwen3-4b-Z-Image-Turbo-AbliteratedV1:Q6_K
 
       # 📦 打包 Ollama 模型库(自动定位实际路径)
       - name: Package Models Directory
@@ -44,7 +44,7 @@ jobs:
           OLLAMA_DIR=$(sudo find / -name "manifests" -type d 2>/dev/null | grep ".ollama/models" | head -n 1 | sed 's/\/models\/manifests//')
           
           if [ -z "$OLLAMA_DIR" ]; then
-            # 备用搜索：直接定位 .ollama 目录
+            # 备用搜索:直接定位 .ollama 目录
             OLLAMA_DIR=$(sudo find /usr /root /var $HOME -name ".ollama" -type d 2>/dev/null | head -n 1)
           fi
 
@@ -54,9 +54,9 @@ jobs:
           if [ -n "$OLLAMA_DIR" ] && [ -d "$OLLAMA_DIR/models" ]; then
             sudo tar -czvf ollama_models.tar.gz -C "$OLLAMA_DIR" models
             sudo chmod 666 ollama_models.tar.gz
-            echo "✅ 打包成功！"
+            echo "✅ 打包成功!"
           else
-            echo "❌ 仍未找到 models 目录,列出可能位置以排查："
+            echo "❌ 仍未找到 models 目录,列出可能位置以排查:"
             sudo find / -name "blobs" 2>/dev/null
             exit 1
           fi
