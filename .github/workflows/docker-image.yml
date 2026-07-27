@@ -1,71 +1,56 @@
-name: Download Model and Upload to Cloud Storage
+name: Build and Push ComfyUI VoxCPM Docker
 
 on:
   workflow_dispatch:
 
 jobs:
-  download-and-upload:
+  build-and-push:
     runs-on: ubuntu-latest
     steps:
-      # 2️⃣. 📥 安装并启动 Ollama 后台服务
-      - name: Install and Start Ollama
-        run: |
-          echo "📥 安装 Ollama..."
-          curl -fsSL https://ollama.com/install.sh | sh
+      # ====================================================================
+      # 腾出空间!通过卸载不需要的 Android、.NET 等工具,释放出约 30GB+ 空间
+      # ====================================================================
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap: true
 
-          echo "🚀 在后台启动 Ollama 服务..."
-          nohup ollama serve > ollama.log 2>&1 &
+      - name: 查看清理前磁盘空间
+        run: df -h /
 
-          echo "⏳ 等待 Ollama 后台服务就绪..."
-          for i in {1..30}; do
-            # 注意:此处必须使用正确端口 11434
-            if curl -s http://127.0.0.1:11434/api/tags > /dev/null; then
-              echo "✅ Ollama 服务已成功运行!"
-              break
-            fi
-            echo "正在重试 ($i/30)..."
-            sleep 1
-          done
+      - name: 删除 .NET SDK(/usr/share/dotnet)
+        run: sudo rm -rf /usr/share/dotnet
+      - name: 删除 Android SDK(/usr/local/lib/android)
+        run: sudo rm -rf /usr/local/lib/android
+      - name: 删除语言工具缓存(/opt/hostedtoolcache)
+        run: sudo rm -rf /opt/hostedtoolcache
+      - name: 删除 PowerShell(/usr/local/share/powershell)
+        run: sudo rm -rf /usr/local/share/powershell
+      - name: 删除 Chromium(/usr/local/share/chromium)
+        run: sudo rm -rf /usr/local/share/chromium
+      - name: 删除 Swift 工具链(/usr/share/swift)
+        run: sudo rm -rf /usr/share/swift
+      - name: 删除 Java JDK(/usr/lib/jvm)
+        run: sudo rm -rf /usr/lib/jvm
+      - name: 删除 Azure CLI 工具(/opt/az)
+        run: sudo rm -rf /opt/az
+      - name: 删除微软工具链(/opt/microsoft)
+        run: sudo rm -rf /opt/microsoft
 
-      # 3️⃣. ⏬ 下载模型(使用 pull 避免交互式卡住)
-      - name: Pull Ollama Model
-        run: |
-          sleep 5
-          
-          echo "📥 正在通过 Ollama 拉取 HF 模型..."
-          ollama pull hf.co/BennyDaBall/Qwen3-4b-Z-Image-Turbo-AbliteratedV1:Q6_K
+      - name: 查看清理后磁盘空间
+        run: df -h /
 
-      # 📦 打包 Ollama 模型库(自动定位实际路径)
-      - name: Package Models Directory
-        run: |
-          echo "📦 查找并打包 Ollama 模型库..."
-          
-          # 1. 自动寻找名为 'manifests' 或 'blobs' 的 models 目录
-          OLLAMA_DIR=$(sudo find / -name "manifests" -type d 2>/dev/null | grep ".ollama/models" | head -n 1 | sed 's/\/models\/manifests//')
-          
-          if [ -z "$OLLAMA_DIR" ]; then
-            # 备用搜索:直接定位 .ollama 目录
-            OLLAMA_DIR=$(sudo find /usr /root /var $HOME -name ".ollama" -type d 2>/dev/null | head -n 1)
-          fi
 
-          echo "📍 找到 Ollama 模型实际存放目录: $OLLAMA_DIR"
-
-          # 2. 执行打包
-          if [ -n "$OLLAMA_DIR" ] && [ -d "$OLLAMA_DIR/models" ]; then
-            sudo tar -czvf ollama_models.tar.gz -C "$OLLAMA_DIR" models
-            sudo chmod 666 ollama_models.tar.gz
-            echo "✅ 打包成功!"
-          else
-            echo "❌ 仍未找到 models 目录,列出可能位置以排查:"
-            sudo find / -name "blobs" 2>/dev/null
-            exit 1
-          fi
-
-      # 4️⃣. 🛠️ 一键安装 Rclone(改用官方免秘钥直装脚本,避开 gpg 报错)
-      - name: Install Rclone
+      # 📡 搬运工上岗:安装强大的网盘传输工具 rclone
+      - name: Install rclone
         run: |
           curl https://rclone.org/install.sh | sudo bash
-
 
       # 🔑 注入网盘钥匙:把 GitHub Secrets 里的 Google Drive 凭证写进配置文件
       - name: Setup rclone config
@@ -75,10 +60,45 @@ jobs:
           mkdir -p ~/.config/rclone
           echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
 
-      # 5️⃣. ☁️ 上传到网盘
-      - name: Upload Model to Cloud Drive
-        run: |
-          echo "🚀 开始上传到网盘..."
-          rclone copy ./ollama_models.tar.gz feadxus-Google-Drive:Models/ --progress
+      # 🆔 登录镜像仓库(这里以 Docker Hub 为例,换成你自己的 Secrets)
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-          echo "🏁 上传成功!"
+      # ⏬ 下载镜像 
+      - name: Pull Docker Image (amd64)
+        run: |
+          docker pull --platform linux/amd64 webodm/webodm_db
+          docker pull --platform linux/amd64 webodm/webodm_webapp
+          docker pull --platform linux/amd64 redis:7.0.10
+          docker pull --platform linux/amd64 webodm/webodm_webapp
+
+      # 🗜️ 初步打包 ➕ 🤐 极限压缩
+      - name: Save Docker Image to tar
+        run: |
+          docker save \
+            webodm/webodm_db \
+            webodm/webodm_webapp \
+            redis:7.0.10 \
+            webodm/webodm_webapp \
+            --platform linux/amd64 -o all_images.tar
+          tar -c all_images.tar | xz -T0 -9e > WebODM.tar.xz
+
+      # 📂 创建远程据点:去你的 Google Drive 上建一个叫 backup 的文件夹(如果不存在的话)
+      - name: Create Google Drive Folder
+        run: |
+          rclone mkdir feadxus-Google-Drive:/backup || true
+
+      # 🚀 冲向云端:把压缩好的离线包稳稳地同步上传到 Google Drive 的备份目录
+      - name: Upload To Google Drive
+        run: |
+          rclone copy \
+            WebODM.tar.xz \
+            feadxus-Google-Drive:/backup/
+
+      # 🏁 终审盘点:列出网盘里的文件,亲眼确认离线包大小和状态都完全 OK
+      - name: Verify Upload
+        run: |
+          rclone lsf feadxus-Google-Drive:/backup/
