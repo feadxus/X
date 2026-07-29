@@ -1,4 +1,4 @@
-name: Build and Push ComfyUI VoxCPM Docker
+name: Download Docker
 
 on:
   workflow_dispatch:
