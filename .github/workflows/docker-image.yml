@@ -71,7 +71,7 @@ jobs:
       - name: Pull Docker Image (amd64)
         run: |
           docker pull --platform linux/amd64 opendronemap/nodemicmac
-          docker pull --platform linux/amd64 webodm/nodeodx:gpu
+          #docker pull --platform linux/amd64 webodm/nodeodx:gpu
           docker pull --platform linux/amd64 webodm/nodeodx
 
       # 🗜️ 初步打包 ➕ 🤐 极限压缩
@@ -79,7 +79,7 @@ jobs:
         run: |
           docker save \
             opendronemap/nodemicmac \
-            webodm/nodeodx:gpu \
+            #webodm/nodeodx:gpu \
             webodm/nodeodx \
             --platform linux/amd64 -o all_images.tar
           tar -c all_images.tar | xz -T0 -9e > WebODM.tar.xz
