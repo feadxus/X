@@ -53,7 +53,7 @@ jobs:
         run: |
           BASE="https://argos-net.com/v1"
           FILES=(
-            translate-sq_en-1_9.argosmodel
+            translate-sq_en-1_9.argosmodel translate-ar_en-1_0.argosmodel
           )
           
           for file in "${FILES[@]}"; do
