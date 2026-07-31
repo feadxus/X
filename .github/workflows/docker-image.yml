@@ -1,51 +1,28 @@
-name: Download Docker
+name: Build ALICE Categorized Package And Upload To Google Drive
 
 on:
   workflow_dispatch:
 
 jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
+  build-and-upload:
+    runs-on: ubuntu-latest  # 指定运行环境
     steps:
-      # ====================================================================
-      # 腾出空间!通过卸载不需要的 Android、.NET 等工具,释放出约 30GB+ 空间
-      # ====================================================================
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          tool-cache: true
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap: true
+      # 🧹 空间大扫除:删掉没用的安卓、.NET 等巨型环境,腾出几十G地方来下载 PyTorch 等大件
+      - name: Free Disk Space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
 
-      - name: 查看清理前磁盘空间
-        run: df -h /
-
-      - name: 删除 .NET SDK(/usr/share/dotnet)
-        run: sudo rm -rf /usr/share/dotnet
-      - name: 删除 Android SDK(/usr/local/lib/android)
-        run: sudo rm -rf /usr/local/lib/android
-      - name: 删除语言工具缓存(/opt/hostedtoolcache)
-        run: sudo rm -rf /opt/hostedtoolcache
-      - name: 删除 PowerShell(/usr/local/share/powershell)
-        run: sudo rm -rf /usr/local/share/powershell
-      - name: 删除 Chromium(/usr/local/share/chromium)
-        run: sudo rm -rf /usr/local/share/chromium
-      - name: 删除 Swift 工具链(/usr/share/swift)
-        run: sudo rm -rf /usr/share/swift
-      - name: 删除 Java JDK(/usr/lib/jvm)
-        run: sudo rm -rf /usr/lib/jvm
-      - name: 删除 Azure CLI 工具(/opt/az)
-        run: sudo rm -rf /opt/az
-      - name: 删除微软工具链(/opt/microsoft)
-        run: sudo rm -rf /opt/microsoft
-
-      - name: 查看清理后磁盘空间
-        run: df -h /
-
+      # 🛠️ 补全系统组件:安装打包和传输所需的底层解压工具(如 xz、curl)
+      - name: Install System Dependencies
+        env:
+          # 强行进入静默模式,防止 apt 弹出服务重启卡死虚拟机
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt update
+          sudo apt install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" gzip xz-utils curl wget
 
       # 📡 搬运工上岗:安装强大的网盘传输工具 rclone
       - name: Install rclone
@@ -60,39 +37,56 @@ jobs:
           mkdir -p ~/.config/rclone
           echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
 
-      # 🆔 登录镜像仓库(这里以 Docker Hub 为例,换成你自己的 Secrets)
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      # ⏬ 下载镜像
-      - name: Pull Docker Image (amd64)
+      # 🔍 连通性测试:打印 rclone 版本并列出网盘,确保钥匙有效、网路通畅
+      - name: Verify rclone
         run: |
-          docker pull --platform linux/amd64 webodm/nodeodx:gpu
+          rclone version
+          rclone listremotes
 
-      # 🗜️ 初步打包 ➕ 🤐 极限压缩
-      - name: Save Docker Image to tar
+      # 🏗️ 创建文件夹
+      - name: Build ALICE Core and Layout Structures
         run: |
-          docker save \
-            webodm/nodeodx:gpu \
-            --platform linux/amd64 -o all_images.tar
-          tar -c all_images.tar | xz -T0 -9e > WebODM1.tar.xz
+          mkdir -p translate_models
+
+      # 🎯 狙击 Argos 翻译模型:从官方源批量拉取所有的翻译权重文件
+      - name: Download Argos Translate Models
+        run: |
+          BASE="https://argos-net.com/v1"
+          FILES=(
+            translate-sq_en-1_9.argosmodel
+          )
+          
+          for file in "${FILES[@]}"; do
+            echo "正在下载: $file ..."
+            while ! curl -L -C - --retry 5 --retry-delay 3 --connect-timeout 10 -o "translate_models/$file" "$BASE/$file"; do
+              echo "下载中断，10秒后重试..."
+              sleep 10
+            done
+          done
+
+      # 🗜️ 初步打包:将刚刚准备好的整套翻译模型目录打包成一个 tar 文件
+      - name: Pack Categorized Package
+        run: |
+          tar -cvf argos_translate_models.tar -C ./translate_models .
+
+      # 🤐 极限压缩:调用 XZ 算法并拉满多线程(-T0),把体积榨干到极致(生成 .tar.xz)
+      - name: Compress Package with XZ
+        run: |
+          xz -T0 -6 argos_translate_models.tar
 
       # 📂 创建远程据点:去你的 Google Drive 上建一个叫 backup 的文件夹(如果不存在的话)
       - name: Create Google Drive Folder
         run: |
-          rclone mkdir feadxus-Google-Drive:/backup || true
+          rclone mkdir fsxedx-Google-Drive:/backup || true
 
       # 🚀 冲向云端:把压缩好的离线包稳稳地同步上传到 Google Drive 的备份目录
       - name: Upload To Google Drive
         run: |
-          rclone copy \
-            WebODM1.tar.xz \
-            feadxus-Google-Drive:/backup/
+          rclone copyto \
+            argos_translate_models.tar.xz \
+            fsxedx-Google-Drive:/backup/argos_translate_models.tar.xz
 
       # 🏁 终审盘点:列出网盘里的文件,亲眼确认离线包大小和状态都完全 OK
       - name: Verify Upload
         run: |
-          rclone lsf feadxus-Google-Drive:/backup/
+          rclone lsf fsxedx-Google-Drive:/backup/
