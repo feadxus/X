@@ -6,7 +6,7 @@ on:
       image:
         description: '📦 请输入 Docker 镜像名称 (包含 tag)'
         required: true
-        default: 'olalie/tapmap:latest'
+        default: 'xxnuo/mtranserver'
       download_amd64:
         description: '⏬ 是否下载 AMD64 架构?'
         type: boolean
