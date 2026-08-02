@@ -67,18 +67,26 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # ⏬ 下载镜像 
-      - name: Pull Docker Image (amd64)
+      # ⏬ 下载镜像并重新打标签,防止互相覆盖
+      - name: Pull Docker Images (Multi-Arch)
         run: |
-          docker pull --platform linux/amd64 uav4geo/nodethermaltools
+          # 拉取 amd64 并打上本地专属标签
+          docker pull --platform linux/amd64 olalie/tapmap:latest
+          docker tag olalie/tapmap:latest olalie-tapmap:amd64
 
-      # 🗜️ 初步打包 ➕ 🤐 极限压缩
-      - name: Save Docker Image to tar
+          # 拉取 arm64 并打上本地专属标签
+          docker pull --platform linux/arm64 olalie/tapmap:latest
+          docker tag olalie/tapmap:latest olalie-tapmap:arm64
+
+      # 🗜️ 导出并极限压缩
+      - name: Save Docker Images and Compress
         run: |
-          docker save \
-            uav4geo/nodethermaltools \
-            --platform linux/amd64 -o all_images.tar
-          tar -c all_images.tar | xz -T0 -9e > nodethermaltools.tar.xz
+          # 使用正确的本地标签导出 tar 包
+          docker save olalie-tapmap:amd64 -o olalie-tapmap-amd64.tar
+          docker save olalie-tapmap:arm64 -o olalie-tapmap-arm64.tar
+          
+          # 极限压缩
+          tar -c olalie-tapmap-amd64.tar olalie-tapmap-arm64.tar | xz -T0 -9e > images.tar.xz
 
       # 📂 创建远程据点:去你的 Google Drive 上建一个叫 backup 的文件夹(如果不存在的话)
       - name: Create Google Drive Folder
@@ -89,7 +97,7 @@ jobs:
       - name: Upload To Google Drive
         run: |
           rclone copy \
-            nodethermaltools.tar.xz \
+            images.tar.xz \
             feadxus-Google-Drive:/backup/
 
       # 🏁 终审盘点:列出网盘里的文件,亲眼确认离线包大小和状态都完全 OK
