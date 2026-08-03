@@ -44,13 +44,13 @@ jobs:
       # ⏬ 下载镜像 
       - name: Pull Docker Image (amd64)
         run: |
-          docker pull --platform linux/amd64 yanwk/comfyui-boot:xpu-cn-20260731
+          docker pull --platform linux/amd64 feadxus/comfyui-voxcpm
 
       # 🗜️ 一步到位流式压缩(省磁盘、省内存)
       - name: Save and Compress Docker Image
         run: |
           # 使用 -3 或 -4 压缩率，兼顾大小与内存，防止 GitHub 内存崩溃
-          docker save yanwk/comfyui-boot:xpu-cn-20260731 | xz -T0 -3 > images.tar.xz
+          docker save feadxus/comfyui-voxcpm | xz -T0 -3 > images.tar.xz
 
       # 📂 创建远程据点
       - name: Create Google Drive Folder
