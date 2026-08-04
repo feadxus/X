@@ -107,8 +107,8 @@ jobs:
 
 
           HF_REPO="BlackStone-Yu/Z-Image-Turbo-GGUF"
-          QUANT_TAG="Q8_0"
-          MY_TAG="z_image_turbo:Q8_0"
+          QUANT_TAG="bf16"
+          MY_TAG="z_image_turbo:bf16"
 
 
           # -----------------------------------------------------------------
