@@ -50,7 +50,7 @@ jobs:
       - name: Save and Compress Docker Image
         run: |
           # 使用 -3 或 -4 压缩率，兼顾大小与内存，防止 GitHub 内存崩溃
-          docker save feadxus/comfyui-voxcpm:cpu | xz -T0 -3 > images.tar.xz
+          docker save feadxus/comfyui-voxcpm:cpu | xz -T0 -3 > comfyui-voxcpm-latest.tar.xz
 
       # 📂 创建远程据点
       - name: Create Google Drive Folder
@@ -61,7 +61,7 @@ jobs:
       - name: Upload To Google Drive
         run: |
           rclone copy \
-            images.tar.xz \
+            comfyui-voxcpm-latest.tar.xz \
             feadxus-Google-Drive:/backup/
 
       # 🏁 终审盘点
