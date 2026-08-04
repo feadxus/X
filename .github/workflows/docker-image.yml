@@ -44,7 +44,7 @@ jobs:
       # ⏬ 下载镜像 
       - name: Pull Docker Image (amd64)
         run: |
-          docker pull --platform linux/amd64 feadxus/comfyui-voxcpm:cpu
+          docker pull --platform linux/amd64 feadxus/comfyui-voxcpm:latest
 
       # 🗜️ 一步到位流式压缩(省磁盘、省内存)
       - name: Save and Compress Docker Image
