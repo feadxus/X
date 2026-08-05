@@ -1,4 +1,4 @@
-name: Build and Push ComfyUI VoxCPM Docker
+name: Download Docker
 
 on:
   workflow_dispatch:
@@ -7,20 +7,6 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
-      # ====================================================================
-      # 腾出空间!通过卸载不需要的 Android、.NET 等工具,释放出约 30GB+ 空间
-      # ====================================================================
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          tool-cache: true
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap: true
-
       # 📡 搬运工上岗:安装强大的网盘传输工具 rclone
       - name: Install rclone
         run: |
@@ -42,40 +28,17 @@ jobs:
       # ⏬ 下载镜像 
       - name: Pull Docker Image (amd64)
         run: |
-          docker pull --platform linux/amd64 killgfat/rvc-webui
+          docker pull --platform linux/amd64 killgfat/voice-changer
 
       # 🏷️ 给镜像换名字
       - name: Tag Docker Image
         run: |
           docker tag \
-          killgfat/rvc-webui \
-          ${{ secrets.DOCKERHUB_USERNAME }}/rvc-webui:latest
+          killgfat/voice-changer \
+          ${{ secrets.DOCKERHUB_USERNAME }}/voice-changer:latest
 
       # 🚀 上传自己的 Docker Hub
       - name: Push Docker Image
         run: |
           docker push \
-          ${{ secrets.DOCKERHUB_USERNAME }}/rvc-webui:latest
-
-      # 🗜️ 一步到位流式压缩(省磁盘、省内存)
-      - name: Save and Compress Docker Image
-        run: |
-          # 使用 -3 或 -4 压缩率，兼顾大小与内存，防止 GitHub 内存崩溃
-          docker save killgfat/rvc-webui | xz -T0 -3 > rvc-webui.tar.xz
-
-      # 📂 创建远程据点
-      - name: Create Google Drive Folder
-        run: |
-          rclone mkdir feadxus-Google-Drive:/backup || true
-
-      # 🚀 冲向云端
-      - name: Upload To Google Drive
-        run: |
-          rclone copy \
-            rvc-webui.tar.xz \
-            feadxus-Google-Drive:/backup/
-
-      # 🏁 终审盘点
-      - name: Verify Upload
-        run: |
-          rclone lsf feadxus-Google-Drive:/backup/
+          ${{ secrets.DOCKERHUB_USERNAME }}/voice-changer:latest
