@@ -1,10 +1,10 @@
-name: Download Model and Upload to Cloud Storage
+name: Build and Push ComfyUI VoxCPM Docker
 
 on:
   workflow_dispatch:
 
 jobs:
-  download-and-upload:
+  build-and-push:
     runs-on: ubuntu-latest
     steps:
       # ====================================================================
@@ -21,113 +21,44 @@ jobs:
           docker-images: true
           swap: true
 
-      - name: 查看清理前磁盘空间
-        run: df -h /
-
-      - name: 删除 .NET SDK(/usr/share/dotnet)
-        run: sudo rm -rf /usr/share/dotnet
-      - name: 删除 Android SDK(/usr/local/lib/android)
-        run: sudo rm -rf /usr/local/lib/android
-      - name: 删除语言工具缓存(/opt/hostedtoolcache)
-        run: sudo rm -rf /opt/hostedtoolcache
-      - name: 删除 PowerShell(/usr/local/share/powershell)
-        run: sudo rm -rf /usr/local/share/powershell
-      - name: 删除 Chromium(/usr/local/share/chromium)
-        run: sudo rm -rf /usr/local/share/chromium
-      - name: 删除 Swift 工具链(/usr/share/swift)
-        run: sudo rm -rf /usr/share/swift
-      - name: 删除 Java JDK(/usr/lib/jvm)
-        run: sudo rm -rf /usr/lib/jvm
-      - name: 删除 Azure CLI 工具(/opt/az)
-        run: sudo rm -rf /opt/az
-      - name: 删除微软工具链(/opt/microsoft)
-        run: sudo rm -rf /opt/microsoft
-
-      - name: 查看清理后磁盘空间
-        run: df -h /
-
-      # 0️⃣. 登陆 Hugging Face
-      - name: Login to Hugging Face via CLI
+      # 📡 搬运工上岗:安装强大的网盘传输工具 rclone
+      - name: Install rclone
+        run: |
+          curl https://rclone.org/install.sh | sudo bash
+      # 🔑 注入网盘钥匙:把 GitHub Secrets 里的 Google Drive 凭证写进配置文件
+      - name: Setup rclone config
         env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FEADXUS_DRIVE }}
         run: |
-          pip install -U huggingface_hub
-          hf auth login --token "$HF_TOKEN"
+          mkdir -p ~/.config/rclone
+          echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
+      # 登录镜像仓库(这里以 Docker Hub 为例,换成你自己的 Secrets)
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 1️⃣. 安装 Ollama
-      - name: Install Ollama
+      # ⏬ 下载镜像 
+      - name: Pull Docker Image (amd64)
         run: |
-          echo "📥 安装 Ollama..."
-          curl -fsSL https://ollama.com/install.sh | sh
-
-      # 2️⃣. 🔑 注入密钥 (让 Actions 拿到账号的推送权限)
-      - name: Inject Ollama Keys
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.OLLAMA_PRIVATE_KEY }}
-          SSH_PUBLIC_KEY: ${{ secrets.OLLAMA_PUBLIC_KEY }}
+          docker pull --platform linux/amd64 killgfat/voice-changer
+      # 🗜️ 一步到位流式压缩(省磁盘、省内存)
+      - name: Save and Compress Docker Image
         run: |
-          echo "🔑 正在写入 Ollama 身份密钥..."
-          
-          # 1. 写入用户主目录
-          mkdir -p $HOME/.ollama
-          echo "$SSH_PRIVATE_KEY" > $HOME/.ollama/id_ed25519
-          echo "$SSH_PUBLIC_KEY" > $HOME/.ollama/id_ed25519.pub
-          chmod 600 $HOME/.ollama/id_ed25519
-          chmod 644 $HOME/.ollama/id_ed25519.pub
-
-          # 2. 同步写入后台 service 目录(防止部分系统环境中 ollama serve 读不到)
-          sudo mkdir -p /usr/share/ollama/.ollama
-          sudo cp -r $HOME/.ollama/* /usr/share/ollama/.ollama/
-          sudo chmod 600 /usr/share/ollama/.ollama/id_ed25519
-          sudo chmod 644 /usr/share/ollama/.ollama/id_ed25519.pub
-
-      # 3️⃣. 启动 Ollama 后台服务
-      - name: Start Ollama Service
+          # 使用 -3 或 -4 压缩率，兼顾大小与内存，防止 GitHub 内存崩溃
+          docker save killgfat/voice-changer | xz -T0 -3 > images.tar.xz
+      # 📂 创建远程据点
+      - name: Create Google Drive Folder
         run: |
-          echo "🚀 在后台启动 Ollama 服务..."
-          nohup ollama serve > ollama.log 2>&1 &
-
-          echo "⏳ 等待 Ollama 后台服务就绪..."
-          for i in {1..30}; do
-            if curl -s http://127.0.0.1:11434/api/tags > /dev/null; then
-              echo "✅ Ollama 服务已成功运行!"
-              break
-            fi
-            echo "正在重试 ($i/30)..."
-            sleep 1
-          done
-
-      # 4️⃣. 零磁盘占用!让 Ollama 直连 HF 构建并推送到个人 Hub
-      - name: Build and Push directly via Ollama
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          rclone mkdir feadxus-Google-Drive:/backup || true
+      # 🚀 冲向云端
+      - name: Upload To Google Drive
         run: |
-          # 👤 你的 Ollama Hub 用户名
-          USERNAME="feadxus"
-
-
-          HF_REPO="BlackStone-Yu/Z-Image-Turbo-GGUF"
-          QUANT_TAG="bf16"
-          MY_TAG="z_image_turbo:bf16"
-
-
-          # -----------------------------------------------------------------
-          # 🚀 下面是自动化执行流程(无需修改任何代码)
-          # -----------------------------------------------------------------
-          TARGET_REPO="${USERNAME}/${MY_TAG}"
-
-          echo "📄 生成指向 Hugging Face 的直连 Modelfile..."
-          # 利用 Ollama 语法:FROM huggingface.co/仓库名:量化Tag
-          echo "FROM huggingface.co/${HF_REPO}:${QUANT_TAG}" > Modelfile
-
-          echo "🔨 让 Ollama 边下载边直接打包(零暂存文件,大幅省磁盘!)..."
-          ollama create $TARGET_REPO -f Modelfile
-
-          echo "🔍 检查本地模型列表..."
-          ollama list
-
-          echo "🚀 推送到个人 Ollama Hub..."
-          ollama push $TARGET_REPO
-
-          echo "🧹 清理 Modelfile 配置文件..."
-          rm -f Modelfile
+          rclone copy \
+            images.tar.xz \
+            feadxus-Google-Drive:/backup/
+      # 🏁 终审盘点
+      - name: Verify Upload
+        run: |
+          rclone lsf feadxus-Google-Drive:/backup/
