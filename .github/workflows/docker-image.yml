@@ -28,26 +28,26 @@ jobs:
       # ⏬ 下载镜像 
       - name: Pull Docker Image (amd64)
         run: |
-          docker pull --platform linux/amd64 openmmlab/mmagic:latest
+          docker pull --platform linux/amd64 pytorch/pytorch:2.1.2-cuda12.1-cudnn8-devel
 
       # 🏷️ 给镜像换名字
       - name: Tag Docker Image
         run: |
           docker tag \
-          openmmlab/mmagic:latest \
-          ${{ secrets.DOCKERHUB_USERNAME }}/mmagic:latest
+          pytorch/pytorch:2.1.2-cuda12.1-cudnn8-devel \
+          ${{ secrets.DOCKERHUB_USERNAME }}/pytorch:2.1.2-cuda12.1-cudnn8-devel:latest
 
       # 🚀 上传自己的 Docker Hub
       - name: Push Docker Image
         run: |
           docker push \
-          ${{ secrets.DOCKERHUB_USERNAME }}/mmagic:latest
+          ${{ secrets.DOCKERHUB_USERNAME }}/pytorch:2.1.2-cuda12.1-cudnn8-devel:latest
 
       # 🗜️ 一步到位流式压缩(省磁盘、省内存)
       - name: Save and Compress Docker Image
         run: |
           # 使用 -3 或 -4 压缩率，兼顾大小与内存，防止 GitHub 内存崩溃
-          docker save openmmlab/mmagic:latest | xz -T0 -3 > openmmlab-mmagic-latest.tar.xz
+          docker save pytorch:2.1.2-cuda12.1-cudnn8-devel | xz -T0 -3 > pytorch-:2.1.2-cuda12.1-cudnn8-devel.tar.xz
 
       # 📂 创建远程据点
       - name: Create Google Drive Folder
