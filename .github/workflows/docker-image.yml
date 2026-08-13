@@ -16,9 +16,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-      - name: 🔍 查看空间状态
-        run: df -h /
-
       - name: 🛠️ 安装 Git LFS 与 Rclone
         run: |
           sudo apt-get update && sudo apt-get install -y git-lfs xz-utils
@@ -32,15 +29,26 @@ jobs:
           mkdir -p ~/.config/rclone
           echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
 
-      - name: 📥 克隆 Hugging Face 模型仓库
+      - name: 📥 克隆 Hugging Face 完整仓库
         run: |
-          mkdir -p 123
-          wget -c --no-dns-cache -v -O 123/rclone-v1.65.2-linux-amd64.zip https://downloads.rclone.org/v1.65.2/rclone-v1.65.2-linux-amd64.zip
-          wget -c --no-dns-cache -v -O 123/rclone-v1.65.2-linux-arm64.zip https://downloads.rclone.org/v1.65.2/rclone-v1.65.2-linux-arm64.zip
-      - name: 🗜️ 高倍率打包压缩模型文件
+          # 格式化目录名称 (例如将 mlx-community/Qwen2.5 转换为 mlx-community_Qwen2.5)
+          TARGET_DIR=$(echo $MODEL_REPO | tr '/' '_')
+          
+          # 直接克隆为完整的目标文件夹
+          git clone https://huggingface.co/$MODEL_REPO "$TARGET_DIR"
+          
+          echo "仓库完整目录："
+          ls -lh "$TARGET_DIR"
+
+      - name: 🗜️ 打包整个仓库结构并高倍压缩
         run: |
-          tar -cf model.tar -C 123 .
-          xz -T0 -9e model.tar
+          TARGET_DIR=$(echo $MODEL_REPO | tr '/' '_')
+          
+          # 将整个目录直接打包，保留顶级文件夹名和仓库内部完整结构
+          tar -cf "${TARGET_DIR}.tar" "$TARGET_DIR"
+          xz -T0 -9e "${TARGET_DIR}.tar"
+          
+          ls -lh "${TARGET_DIR}.tar.xz"
 
       - name: 📂 确保 Google Drive 目录存在
         run: |
@@ -48,7 +56,8 @@ jobs:
 
       - name: 🚀 上传至 Google Drive
         run: |
-          rclone copy model.tar.xz feadxus-Google-Drive:/backup/ --progress
+          TARGET_DIR=$(echo $MODEL_REPO | tr '/' '_')
+          rclone copy "${TARGET_DIR}.tar.xz" feadxus-Google-Drive:/backup/ --progress
 
       - name: ✅ 验证上传结果
         run: |
