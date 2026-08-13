@@ -1,67 +1,92 @@
-name: Download Docker
+name: Download HF Model to Google Drive
 
 on:
   workflow_dispatch:
+    inputs:
+      repo_id:
+        description: '🤗 请输入 Hugging Face 仓库名称 (Org/Repo)'
+        required: true
+        default: 'mlx-community/Qwen2.5-Coder-0.5B-Instruct-4bit'
+
+env:
+  MODEL_REPO: ${{ inputs.repo_id }}
 
 jobs:
-  build-and-push:
+  download-and-upload:
     runs-on: ubuntu-latest
     steps:
-      # 📡 搬运工上岗:安装强大的网盘传输工具 rclone
-      - name: Install rclone
+      - name: 🧹 删除工具，获取更多磁盘空间
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap: true
+
+      - name: 清理工具链空间
         run: |
+          sudo rm -rf \
+          /usr/share/dotnet \
+          /usr/local/lib/android \
+          /opt/hostedtoolcache \
+          /usr/local/share/powershell \
+          /usr/local/share/chromium \
+          /usr/share/swift \
+          /usr/lib/jvm \
+          /opt/az \
+          /opt/microsoft
+
+      - name: 🔍 查看空间状态
+        run: df -h /
+
+      - name: 🛠️ 安装 Git LFS 与 Rclone
+        run: |
+          sudo apt-get update && sudo apt-get install -y git-lfs xz-utils
+          git lfs install
           curl https://rclone.org/install.sh | sudo bash
-      # 🔑 注入网盘钥匙:把 GitHub Secrets 里的 Google Drive 凭证写进配置文件
-      - name: Setup rclone config
+
+      - name: ⚙️ 配置 Rclone (Google Drive)
         env:
-          RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FSXEDX_DRIVE }}
+          RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FEADXUS_DRIVE }}
         run: |
           mkdir -p ~/.config/rclone
           echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
-      # 登录镜像仓库(这里以 Docker Hub 为例,换成你自己的 Secrets)
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # ⏬ 下载镜像 
-      - name: Pull Docker Image (amd64)
+      - name: 📥 克隆 Hugging Face 模型仓库
         run: |
-          docker pull --platform linux/amd64 pytorch/pytorch:2.1.2-cuda12.1-cudnn8-devel
+          # 提取仓库名称作为文件夹名 (例如 Qwen2.5-Coder-0.5B-Instruct-4bit)
+          FOLDER_NAME=$(basename $MODEL_REPO)
+          
+          # 克隆模型仓库 (包含大文件 LFS 权重)
+          git clone https://huggingface.co/$MODEL_REPO model_dir
+          
+          echo "模型目录结构："
+          ls -lh model_dir
 
-      # 🏷️ 给镜像换名字
-      - name: Tag Docker Image
+      - name: 🗜️ 高倍率打包压缩模型文件
         run: |
-          docker tag \
-          pytorch/pytorch:2.1.2-cuda12.1-cudnn8-devel \
-          ${{ secrets.DOCKERHUB_USERNAME }}/pytorch:2.1.2-cuda12.1-cudnn8-devel:latest
+          # 提取仓库名用于压缩包命名
+          REPO_NAME_CLEAN=$(echo $MODEL_REPO | tr '/' '_')
+          
+          tar -cf model.tar -C model_dir .
+          xz -T0 -9e model.tar
+          
+          # 重命名为带模型名的压缩包
+          mv model.tar.xz ${REPO_NAME_CLEAN}.tar.xz
+          ls -lh ${REPO_NAME_CLEAN}.tar.xz
 
-      # 🚀 上传自己的 Docker Hub
-      - name: Push Docker Image
+      - name: 📂 确保 Google Drive 目录存在
         run: |
-          docker push \
-          ${{ secrets.DOCKERHUB_USERNAME }}/pytorch:2.1.2-cuda12.1-cudnn8-devel:latest
+          rclone mkdir feadxus-Google-Drive:/backup || true
 
-      # 🗜️ 一步到位流式压缩(省磁盘、省内存)
-      - name: Save and Compress Docker Image
+      - name: 🚀 上传至 Google Drive
         run: |
-          # 使用 -3 或 -4 压缩率，兼顾大小与内存，防止 GitHub 内存崩溃
-          docker save pytorch:2.1.2-cuda12.1-cudnn8-devel | xz -T0 -3 > pytorch-:2.1.2-cuda12.1-cudnn8-devel.tar.xz
+          REPO_NAME_CLEAN=$(echo $MODEL_REPO | tr '/' '_')
+          rclone copy ${REPO_NAME_CLEAN}.tar.xz feadxus-Google-Drive:/backup/ --progress
 
-      # 📂 创建远程据点
-      - name: Create Google Drive Folder
+      - name: ✅ 验证上传结果
         run: |
-          rclone mkdir fsxedx-Google-Drive:/backup || true
-
-      # 🚀 冲向云端
-      - name: Upload To Google Drive
-        run: |
-          rclone copy \
-            openmmlab-mmagic-latest.tar.xz \
-            fsxedx-Google-Drive:/backup/
-
-      # 🏁 终审盘点
-      - name: Verify Upload
-        run: |
-          rclone lsf fsxedx-Google-Drive:/backup/
+          rclone lsf feadxus-Google-Drive:/backup/
