@@ -15,29 +15,6 @@ jobs:
   download-and-upload:
     runs-on: ubuntu-latest
     steps:
-      - name: 🧹 删除工具，获取更多磁盘空间
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          tool-cache: true
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap: true
-
-      - name: 清理工具链空间
-        run: |
-          sudo rm -rf \
-          /usr/share/dotnet \
-          /usr/local/lib/android \
-          /opt/hostedtoolcache \
-          /usr/local/share/powershell \
-          /usr/local/share/chromium \
-          /usr/share/swift \
-          /usr/lib/jvm \
-          /opt/az \
-          /opt/microsoft
 
       - name: 🔍 查看空间状态
         run: df -h /
@@ -64,10 +41,6 @@ jobs:
         run: |
           tar -cf model.tar -C 123 .
           xz -T0 -9e model.tar
-          
-          # 重命名为带模型名的压缩包
-          mv model.tar.xz ${REPO_NAME_CLEAN}.tar.xz
-          ls -lh ${REPO_NAME_CLEAN}.tar.xz
 
       - name: 📂 确保 Google Drive 目录存在
         run: |
@@ -75,8 +48,7 @@ jobs:
 
       - name: 🚀 上传至 Google Drive
         run: |
-          REPO_NAME_CLEAN=$(echo $MODEL_REPO | tr '/' '_')
-          rclone copy ${REPO_NAME_CLEAN}.tar.xz feadxus-Google-Drive:/backup/ --progress
+          rclone copy model.tar.xz feadxus-Google-Drive:/backup/ --progress
 
       - name: ✅ 验证上传结果
         run: |
