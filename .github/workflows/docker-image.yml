@@ -57,21 +57,12 @@ jobs:
 
       - name: 📥 克隆 Hugging Face 模型仓库
         run: |
-          # 提取仓库名称作为文件夹名 (例如 Qwen2.5-Coder-0.5B-Instruct-4bit)
-          FOLDER_NAME=$(basename $MODEL_REPO)
-          
-          # 克隆模型仓库 (包含大文件 LFS 权重)
-          git clone https://huggingface.co/$MODEL_REPO model_dir
-          
-          echo "模型目录结构："
-          ls -lh model_dir
-
+          mkdir -p 123
+          wget -c --no-dns-cache -v -O 123/rclone-v1.65.2-linux-amd64.zip https://downloads.rclone.org/v1.65.2/rclone-v1.65.2-linux-amd64.zip
+          wget -c --no-dns-cache -v -O 123/rclone-v1.65.2-linux-arm64.zip https://downloads.rclone.org/v1.65.2/rclone-v1.65.2-linux-arm64.zip
       - name: 🗜️ 高倍率打包压缩模型文件
         run: |
-          # 提取仓库名用于压缩包命名
-          REPO_NAME_CLEAN=$(echo $MODEL_REPO | tr '/' '_')
-          
-          tar -cf model.tar -C model_dir .
+          tar -cf model.tar -C 123 .
           xz -T0 -9e model.tar
           
           # 重命名为带模型名的压缩包
