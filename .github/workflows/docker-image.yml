@@ -116,16 +116,16 @@ jobs:
       - name: 📂 Google Drive 创建备份目录
         run: |
           rclone mkdir \
-          feadxus-Google-Drive:/backup \
+          FEADXUS-Google-Drive:/backup \
           || true
 
       - name: 🚀 上传 Google Drive
         run: |
           rclone copy \
           images.tar.xz \
-          feadxus-Google-Drive:/backup/
+          FEADXUS-Google-Drive:/backup/
 
       - name: ✅ 验证
         run: |
           rclone lsf \
-          feadxus-Google-Drive:/backup/
+          FEADXUS-Google-Drive:/backup/
