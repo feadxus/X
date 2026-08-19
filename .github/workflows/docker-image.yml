@@ -1,64 +1,131 @@
-name: Download HF Model to Google Drive
+name: Download Docker
 
 on:
   workflow_dispatch:
     inputs:
-      repo_id:
-        description: '🤗 请输入 Hugging Face 仓库名称 (Org/Repo)'
+
+      image:
+        description: '📦 请输入 Docker 镜像名称 (包含 tag)'
         required: true
         default: 'dcflachs/veracrypt-gui'
 
-env:
-  MODEL_REPO: ${{ inputs.repo_id }}
+      download_amd64:
+        description: '⏬ 是否下载 AMD64 架构?'
+        type: boolean
+        default: true
 
+      download_arm64:
+        description: '⏬ 是否下载 ARM64 架构?'
+        type: boolean
+        default: false
+
+env:
+  IMAGE_NAME: ${{ inputs.image }}
 jobs:
-  download-and-upload:
+  build-and-push:
     runs-on: ubuntu-latest
     steps:
+      - name: 🧹 删除工具,获取更多空间
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap: true
 
-      - name: 🛠️ 安装 Git LFS 与 Rclone
+      - name: 清理工具链空间
         run: |
-          sudo apt-get update && sudo apt-get install -y git-lfs xz-utils
-          git lfs install
+          sudo rm -rf \
+          /usr/share/dotnet \
+          /usr/local/lib/android \
+          /opt/hostedtoolcache \
+          /usr/local/share/powershell \
+          /usr/local/share/chromium \
+          /usr/share/swift \
+          /usr/lib/jvm \
+          /opt/az \
+          /opt/microsoft
+
+      - name: 查看空间
+        run: df -h /
+
+      - name: ☁️ 安装 Google Drive
+        run: |
           curl https://rclone.org/install.sh | sudo bash
 
-      - name: ⚙️ 配置 Rclone (Google Drive)
+      - name: Setup rclone config
         env:
           RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FEADXUS_DRIVE }}
+
         run: |
           mkdir -p ~/.config/rclone
           echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
 
-      - name: 📥 克隆 Hugging Face 完整仓库
-        run: |
-          # 格式化目录名称 (例如将 mlx-community/Qwen2.5 转换为 mlx-community_Qwen2.5)
-          TARGET_DIR=$(echo $MODEL_REPO | tr '/' '_')
-          
-          # 直接克隆为完整的目标文件夹
-          git clone https://huggingface.co/$MODEL_REPO "$TARGET_DIR"
-          
-          echo "仓库完整目录："
-          ls -lh "$TARGET_DIR"
+      - name: 🐳 Docker Hub 登录
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: 🗜️ 打包整个仓库结构并高倍压缩
+      - name: 🖥️ 下载镜像与导出 AMD64 Image
+        if: ${{ inputs.download_amd64 }}
         run: |
-          TARGET_DIR=$(echo $MODEL_REPO | tr '/' '_')
-          
-          # 将整个目录直接打包，保留顶级文件夹名和仓库内部完整结构
-          tar -cf "${TARGET_DIR}.tar" "$TARGET_DIR"
-          xz -T0 -9e "${TARGET_DIR}.tar"
-          
-          ls -lh "${TARGET_DIR}.tar.xz"
+          docker pull \
+          --platform linux/amd64 \
+          $IMAGE_NAME
 
-      - name: 📂 确保 Google Drive 目录存在
-        run: |
-          rclone mkdir feadxus-Google-Drive:/backup || true
+          docker save \
+          $IMAGE_NAME \
+          -o amd64.tar
 
-      - name: 🚀 上传至 Google Drive
+      - name: 🖥️ 下载镜像与导出 ARM64 Image
+        if: ${{ inputs.download_arm64 }}
         run: |
-          TARGET_DIR=$(echo $MODEL_REPO | tr '/' '_')
-          rclone copy "${TARGET_DIR}.tar.xz" feadxus-Google-Drive:/backup/ --progress
+          docker pull \
+          --platform linux/arm64 \
+          $IMAGE_NAME
 
-      - name: ✅ 验证上传结果
+          docker save \
+          $IMAGE_NAME \
+          -o arm64.tar
+
+      - name: 🏷️ 创建自己的 Docker Hub 镜像
         run: |
-          rclone lsf feadxus-Google-Drive:/backup/
+          IMAGE_TAG=$(basename $IMAGE_NAME)
+          docker tag \
+          $IMAGE_NAME \
+          ${{ secrets.DOCKERHUB_USERNAME }}/$IMAGE_TAG
+
+      - name: 🚀 推送自己的 Docker Hub
+        run: |
+          IMAGE_TAG=$(basename $IMAGE_NAME)
+          docker push \
+          ${{ secrets.DOCKERHUB_USERNAME }}/$IMAGE_TAG
+
+      - name: 🗜️ 压缩镜像,准备上传镜像至网盘
+        run: |
+          tar -cf images.tar *.tar
+          xz \
+          -T0 \
+          -9e \
+          images.tar
+
+      - name: 📂 Google Drive 创建备份目录
+        run: |
+          rclone mkdir \
+          feadxus-Google-Drive:/backup \
+          || true
+
+      - name: 🚀 上传 Google Drive
+        run: |
+          rclone copy \
+          images.tar.xz \
+          feadxus-Google-Drive:/backup/
+
+      - name: ✅ 验证
+        run: |
+          rclone lsf \
+          feadxus-Google-Drive:/backup/
