@@ -6,7 +6,7 @@ on:
       repo_id:
         description: '🤗 请输入 Hugging Face 仓库名称 (Org/Repo)'
         required: true
-        default: 'mlx-community/Qwen2.5-Coder-0.5B-Instruct-4bit'
+        default: 'dcflachs/veracrypt-gui'
 
 env:
   MODEL_REPO: ${{ inputs.repo_id }}
