@@ -1,20 +1,52 @@
-name: 🐳 Docker Container Test
+name: Download Docker
 
-# 触发条件：当你推送到 master/main 分支，或者提交 Pull Request 时触发
 on:
-  push:
-    branches: [ "master", "main" ]
-  pull_request:
-    branches: [ "master", "main" ]
+  workflow_dispatch:
+    inputs:
+      image:
+        description: '📦 请输入 Docker 镜像名称 (包含 tag)'
+        required: true
+        default: 'haproxytech/haproxy-debian:3.0'
+
+      download_amd64:
+        description: '⏬ 是否下载 AMD64 架构?'
+        type: boolean
+        default: true
+
+      download_arm64:
+        description: '⏬ 是否下载 ARM64 架构?'
+        type: boolean
+        default: false
+
+env:
+  IMAGE_NAME: ${{ inputs.image }}
 
 jobs:
-  check-env:
+  build-and-push:
     runs-on: ubuntu-latest
-
     steps:
-      # 1. 拉取代码（如果你的 Dockerfile 在仓库里需要现场构建，就保留这步；如果是直接测远端镜像，这步可以不要）
-      - name: ⬇️ Checkout code
-        uses: actions/checkout@v4
+      - name: 🧹 清理磁盘空间
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap: true
+
+      - name: ☁️ 安装 Google Drive 工具 (rclone) 与 skopeo
+        run: |
+          sudo apt-get update && sudo apt-get install -y skopeo
+          curl https://rclone.org/install.sh | sudo bash
+
+      - name: Setup rclone config
+        env:
+          RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FEADXUS_DRIVE }}
+        run: |
+          mkdir -p ~/.config/rclone
+          echo "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
 
       - name: 🐳 Docker Hub 登录
         uses: docker/login-action@v3
@@ -22,24 +54,58 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 3. 拉取最新的镜像到 GitHub Actions 虚拟机本地
-      - name: 📥 Pull Docker Image
+      - name: 🖥️ 下载 AMD64 镜像并导出
+        if: ${{ inputs.download_amd64 }}
         run: |
-          docker pull feadxus/tabminal:latest
+          docker pull --platform linux/amd64 $IMAGE_NAME
+          docker save $IMAGE_NAME -o amd64.tar
+          # 立即重命名本地镜像 tag，防止被 arm64 覆盖
+          docker tag $IMAGE_NAME local/image:amd64
+          docker rmi $IMAGE_NAME
 
-      # 4. 【核心测试步骤】非交互式运行容器，校验目录是否存在
-      - name: 🔍 Check if .python-env exists in /root
+      - name: 🖥️ 下载 ARM64 镜像并导出
+        if: ${{ inputs.download_arm64 }}
         run: |
-          docker run --rm --entrypoint="" feadxus/tabminal:latest sh -c '
-            if [ -d "/root/.python-env" ]; then
-              echo "=========================================="
-              echo "✅ SUCCESS: /root/.python-env 目录存在！"
-              echo "=========================================="
-              exit 0
-            else
-              echo "=========================================="
-              echo "❌ ERROR: 找不到 /root/.python-env 目录！"
-              echo "=========================================="
-              exit 1
-            fi
-          '
+          docker pull --platform linux/arm64 $IMAGE_NAME
+          docker save $IMAGE_NAME -o arm64.tar
+          # 立即重命名本地镜像 tag，防止冲突
+          docker tag $IMAGE_NAME local/image:arm64
+          docker rmi $IMAGE_NAME
+
+      - name: 🏷️ 推送镜像至个人 Docker Hub (使用 Skopeo 保持架构完整)
+        run: |
+          IMAGE_TAG=$(basename $IMAGE_NAME)
+          TARGET_REF="${{ secrets.DOCKERHUB_USERNAME }}/$IMAGE_TAG"
+
+          # 如果勾选了 amd64，推送 amd64 镜像
+          if [ "${{ inputs.download_amd64 }}" = "true" ]; then
+            docker tag local/image:amd64 ${TARGET_REF}-amd64
+            docker push ${TARGET_REF}-amd64
+          fi
+
+          # 如果勾选了 arm64，推送 arm64 镜像
+          if [ "${{ inputs.download_arm64 }}" = "true" ]; then
+            docker tag local/image:arm64 ${TARGET_REF}-arm64
+            docker push ${TARGET_REF}-arm64
+          fi
+
+      - name: 🗜️ 安全打包与压缩 Tar 文件
+        run: |
+          # 动态匹配存在的 tar 文件，避免未勾选时匹配失败
+          TAR_FILES=$(ls *.tar 2>/dev/null | grep -v 'images.tar' || true)
+          if [ -z "$TAR_FILES" ]; then
+            echo "没有需要打包的镜像文件"
+            exit 1
+          fi
+
+          tar -cf images.tar $TAR_FILES
+          xz -T0 -9e images.tar
+
+      - name: 📂 Google Drive 创建目录并上传
+        run: |
+          rclone mkdir FEADXUS-Google-Drive:/backup || true
+          rclone copy images.tar.xz FEADXUS-Google-Drive:/backup/
+
+      - name: ✅ 验证上传结果
+        run: |
+          rclone lsf FEADXUS-Google-Drive:/backup/
