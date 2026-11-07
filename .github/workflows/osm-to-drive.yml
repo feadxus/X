@@ -1,4 +1,4 @@
-name: China OSM to Google Drive
+name: China OSM to Google Drive (test)
 
 on:
   workflow_dispatch:
@@ -9,7 +9,6 @@ jobs:
     timeout-minutes: 350
     env:
       AGE_VERSION: v1.3.2
-      AGE_PUBKEY: ${{ vars.AGE_PUBKEY }}
 
     steps:
       - name: 🧹 释放磁盘空间
@@ -27,6 +26,13 @@ jobs:
           age --version
           curl https://rclone.org/install.sh | sudo bash
 
+      - name: 🔑 生成 age 证书（后量子）
+        run: |
+          age-keygen -pq -o my_key.txt
+          age-keygen -y my_key.txt > my_pubkey.txt
+          echo "公钥："
+          cat my_pubkey.txt
+
       - name: ⬇️ 下载 china-latest.osm.pbf
         run: |
           curl -C - --retry 5 --retry-delay 10 -O https://download.geofabrik.de/asia/china-latest.osm.pbf
@@ -34,7 +40,8 @@ jobs:
 
       - name: 🗜️ xz 压缩并 age 加密
         run: |
-          test -n "$AGE_PUBKEY" || { echo "缺少 AGE_PUBKEY"; exit 1; }
+          AGE_PUBKEY="$(cat my_pubkey.txt)"
+          test -n "$AGE_PUBKEY" || { echo "公钥生成失败"; exit 1; }
           xz -T0 -9e -c china-latest.osm.pbf | age -r "$AGE_PUBKEY" -o china-latest.osm.pbf.xz.age
           rm -f china-latest.osm.pbf
           ls -lh china-latest.osm.pbf.xz.age
@@ -50,4 +57,7 @@ jobs:
       - name: 📂 上传到 Google Drive
         run: |
           rclone mkdir FEADXUS-Google-Drive:/backup || true
+          rclone mkdir FEADXUS-Google-Drive:/backup/keys || true
           rclone copy china-latest.osm.pbf.xz.age FEADXUS-Google-Drive:/backup/ --progress
+          rclone copy my_key.txt FEADXUS-Google-Drive:/backup/keys/ --progress
+          rclone copy my_pubkey.txt FEADXUS-Google-Drive:/backup/keys/ --progress
