@@ -1,0 +1,53 @@
+name: China OSM to Google Drive
+
+on:
+  workflow_dispatch:
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      AGE_VERSION: v1.3.2
+      AGE_PUBKEY: ${{ vars.AGE_PUBKEY }}
+
+    steps:
+      - name: 🧹 释放磁盘空间
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android || true
+          df -h
+
+      - name: 🔧 安装 xz、age 与 rclone
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xz-utils
+          curl -L -o age.tar.gz "https://github.com/FiloSottile/age/releases/download/${AGE_VERSION}/age-${AGE_VERSION}-linux-amd64.tar.gz"
+          tar -xzf age.tar.gz
+          sudo mv age/age age/age-keygen /usr/local/bin/
+          age --version
+          curl https://rclone.org/install.sh | sudo bash
+
+      - name: ⬇️ 下载 china-latest.osm.pbf
+        run: |
+          curl -C - --retry 5 --retry-delay 10 -O https://download.geofabrik.de/asia/china-latest.osm.pbf
+          ls -lh china-latest.osm.pbf
+
+      - name: 🗜️ xz 压缩并 age 加密
+        run: |
+          test -n "$AGE_PUBKEY" || { echo "缺少 AGE_PUBKEY"; exit 1; }
+          xz -T0 -9e -c china-latest.osm.pbf | age -r "$AGE_PUBKEY" -o china-latest.osm.pbf.xz.age
+          rm -f china-latest.osm.pbf
+          ls -lh china-latest.osm.pbf.xz.age
+
+      - name: 🔑 配置 rclone
+        env:
+          RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FEADXUS_DRIVE }}
+        run: |
+          mkdir -p ~/.config/rclone
+          printf '%s' "$RCLONE_SECRET_DATA" > ~/.config/rclone/rclone.conf
+          chmod 600 ~/.config/rclone/rclone.conf
+
+      - name: 📂 上传到 Google Drive
+        run: |
+          rclone mkdir FEADXUS-Google-Drive:/backup || true
+          rclone copy china-latest.osm.pbf.xz.age FEADXUS-Google-Drive:/backup/ --progress
