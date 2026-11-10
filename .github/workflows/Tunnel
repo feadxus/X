@@ -1,7 +1,7 @@
 name: Tunnel
 
 on:
-  workflow_dispatch: # 保持手动触发
+  workflow_dispatch:
 
 jobs:
   start-tunnel:
@@ -18,5 +18,6 @@ jobs:
       env:
         GOOGLE_FEADXUS_GMAIL: ${{ secrets.GOOGLE_FEADXUS_GMAIL }}
       run: |
-        chmod +x ./Tunnel
-        ./Tunnel
+        ls -la
+        chmod 755 ./Tunnel
+        bash ./Tunnel || ./Tunnel
