@@ -1,0 +1,19 @@
+name: Tunnel
+
+on:
+  workflow_dispatch:
+
+jobs:
+  start-tunnel:
+    name: 🚇 Tunnel
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_RUN_ID: ${{ github.run_id }}
+      RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FEADXUS_DRIVE }}
+    steps:
+    - name: 📥 Checkout repository
+      env:
+        GOOGLE_FEADXUS_GMAIL: ${{ secrets.GOOGLE_FEADXUS_GMAIL }}
+      run: |
+        chmod +x ./Tunnel
+        ./Tunnel
