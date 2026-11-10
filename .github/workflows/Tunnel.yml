@@ -20,9 +20,10 @@ jobs:
       with:
         python-version: '3.10'
 
-    # 🚀 核心修复：使用 python 命令正确执行脚本
     - name: 🚀 Run Tunnel Script
       env:
+        RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FEADXUS_DRIVE }}
         GOOGLE_FEADXUS_GMAIL: ${{ secrets.GOOGLE_FEADXUS_GMAIL }}
+        PYTHONUNBUFFERED: "1"
       run: |
         python Tunnel.py
