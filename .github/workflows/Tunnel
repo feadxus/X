@@ -11,7 +11,11 @@ jobs:
       GITHUB_RUN_ID: ${{ github.run_id }}
       RCLONE_SECRET_DATA: ${{ secrets.GOOGLE_FEADXUS_DRIVE }}
     steps:
+    # 🌟 修复：真正拉取仓库代码
     - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: 🚀 Run Tunnel Script
       env:
         GOOGLE_FEADXUS_GMAIL: ${{ secrets.GOOGLE_FEADXUS_GMAIL }}
       run: |
