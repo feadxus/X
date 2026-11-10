@@ -12,6 +12,9 @@ import urllib.request
 from datetime import datetime
 import logging
 
+# 配置日志输出格式
+logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(name)s:%(message)s')
+
 def run(cmd: str, cwd: str = None, capture: bool = False) -> subprocess.CompletedProcess:
     try:
         result = subprocess.run(
@@ -26,31 +29,40 @@ def run(cmd: str, cwd: str = None, capture: bool = False) -> subprocess.Complete
         return result
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"命令执行失败: {cmd}\n{e.stderr}")
+
 class Config:
     RCLONE_REMOTE = "FEADXUS-Google-Drive"
     RCLONE_REMOTE_PATH = f"{RCLONE_REMOTE}:/desktop/"
     MOUNT_POINT = "/tmp/Command"
+
 CONFIG = Config()
 PASSWORD_FOUR = "083AA5F2FD75585D1DE42D6D9977723DBA26F4653653F722"
 DISK_VOLUME = "/tmp/Command/R-T"
 DISK_POINT = "/tmp/disk_1"
+
+# 预先安装依赖
 pip_packages = [
     "google-auth-oauthlib",
     "google-api-python-client"
 ]
 subprocess.check_call(["pip3", "install", *pip_packages])
+
+# 安装 VeraCrypt 
 veracrypt_url = "https://github.com/veracrypt/VeraCrypt/releases/download/VeraCrypt_1.26.29/veracrypt-console-1.26.29-Debian-13-amd64.deb"
 veracrypt_deb = "/tmp/veracrypt-console-1.26.29-amd64.deb"
 urllib.request.urlretrieve(veracrypt_url, veracrypt_deb)
 subprocess.check_call(["sudo", "apt-get", "install", "-y", veracrypt_deb])
 subprocess.check_call(["sudo", "apt-get", "install", "-y", "secure-delete"])
 os.remove(veracrypt_deb)
+
+# 安装 rclone
 subprocess.run(
     "curl -fsSL https://rclone.org/install.sh | sudo bash",
     shell=True,
     executable="/bin/bash",
     check=True,
 )
+
 def setup_rclone_config() -> None:
     rclone_secret = os.getenv("RCLONE_SECRET_DATA")
     if not rclone_secret:
@@ -60,11 +72,14 @@ def setup_rclone_config() -> None:
     conf_path = os.path.join(conf_dir, "rclone.conf")
     with open(conf_path, "w", encoding="utf-8") as f:
         f.write(rclone_secret)
-    print(f"✅ rclone 配置已写入: {conf_path}")
+    print(f"✅ rclone 配置已写入: {conf_path}", flush=True)
+
 def mount_remote_command() -> None:
     mount_point = pathlib.Path(Config.MOUNT_POINT)
     mount_point.mkdir(parents=True, exist_ok=True)
     log_file = pathlib.Path("/tmp/rclone-command.log")
+    
+    # ✨ 核心修复：添加 --allow-other 允许 VeraCrypt 读取挂载盘中的密文卷
     cmd = [
         "rclone",
         "mount",
@@ -74,13 +89,15 @@ def mount_remote_command() -> None:
         os.path.expanduser("~/.config/rclone/rclone.conf"),
         "--vfs-cache-mode",
         "writes",
+        "--allow-other",  
         "--log-level",
         "INFO",
         "--log-file",
         str(log_file),
     ]
-    print("启动 rclone 后台挂载...")
-    print(f"日志文件: {log_file}")
+    print("启动 rclone 后台挂载...", flush=True)
+    print(f"日志文件: {log_file}", flush=True)
+    
     with open(log_file, "w", encoding="utf-8") as log:
         process = subprocess.Popen(
             cmd,
@@ -89,6 +106,7 @@ def mount_remote_command() -> None:
             stderr=subprocess.STDOUT,
             start_new_session=True,
         )
+        
     for _ in range(30):
         time.sleep(1)
         return_code = process.poll()
@@ -103,16 +121,20 @@ def mount_remote_command() -> None:
                 f"❌ rclone 启动失败,返回码: {return_code}\n"
                 f"日志内容:\n{log_content}"
             )
+            
+        # ✨ 核心修复：检查挂载状态时加入 sudo
         result = subprocess.run(
-            ["mountpoint", "-q", str(mount_point)],
+            ["sudo", "mountpoint", "-q", str(mount_point)],
             check=False,
         )
         if result.returncode == 0:
             print(
-                f"✅ 已后台挂载"
-                f"{Config.RCLONE_REMOTE_PATH} → {mount_point}"
+                f"✅ 已后台挂载 "
+                f"{Config.RCLONE_REMOTE_PATH} → {mount_point}",
+                flush=True
             )
             return
+            
     process.terminate()
     log_content = ""
     if log_file.exists():
@@ -124,6 +146,7 @@ def mount_remote_command() -> None:
         f"❌ 挂载超时: {mount_point}\n"
         f"rclone 日志:\n{log_content}"
     )
+
 def check_and_create_mount_point(mount_point):
     if not os.path.exists(mount_point):
         try:
@@ -136,6 +159,7 @@ def check_and_create_mount_point(mount_point):
     else:
         logging.info(f"2 ✅ 目录已存在: {mount_point}")
         return True
+
 def run_veracrypt():
     command = [
         '/usr/bin/veracrypt',
@@ -149,8 +173,9 @@ def run_veracrypt():
         DISK_POINT
     ]
     try:
+        # 使用 sudo 运行 veracrypt 确保解密挂载成功
         result = subprocess.run(
-            command,
+            ["sudo"] + command,
             capture_output=True, text=True, check=False
         )
         if result.returncode != 0:
@@ -173,6 +198,7 @@ def run_veracrypt():
     except Exception as e:
         logging.error(f"4 ❌ 解密分区执行异常: {e}")
         return False
+
 def execute_script(script_path, *args):
     try:
         if not os.path.isfile(script_path):
@@ -187,23 +213,40 @@ def execute_script(script_path, *args):
             start_new_session=True
         )
     except Exception as e:
-        print(f"❌ 执行失败: {e}")
+        print(f"❌ 执行失败: {e}", flush=True)
         return None
+
 def main() -> None:
-    extract_dir = None
+    # ✨ 核心修复：强制开启 Python 行缓冲，让 print 能够实时、按顺序打印
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(line_buffering=True)
+        
     try:
-        print("[设置 rclone 配置]")
+        # ✨ 核心修复：修改系统 fuse.conf 以便允许 rclone 的 --allow-other 参数生效
+        print("[解锁系统 FUSE 多用户挂载限制]", flush=True)
+        subprocess.run(
+            "sudo sed -i 's/#user_allow_other/user_allow_other/' /etc/fuse.conf",
+            shell=True,
+            check=True
+        )
+
+        print("[设置 rclone 配置]", flush=True)
         setup_rclone_config()
-        print("[挂载网盘目录]")
+        
+        print("[挂盘网盘目录]", flush=True)
         mount_remote_command()
-        print("[创建挂载点目录]")
+        
+        print("[创建挂载点目录]", flush=True)
         check_and_create_mount_point(DISK_POINT)
-        print("[执行 Veracrypt 解密]")
+        
+        print("[执行 Veracrypt 解密]", flush=True)
         run_veracrypt()
-        print("[执行脚本]")
+        
+        print("[执行脚本]", flush=True)
         script_path = "/tmp/disk_1/deploy_open_retry.sh"
         execute_script(script_path)
     except Exception as e:
-        print(f"发生错误: {e}")
+        print(f"发生错误: {e}", flush=True)
+
 if __name__ == "__main__":
     main()
