@@ -27,3 +27,7 @@ jobs:
         PYTHONUNBUFFERED: "1"
       run: |
         python Tunnel.py
+
+    # ⏳ 新增步骤：在 Python 脚本结束后等待 10 分钟（600 秒）
+    - name: ⏰ Wait for 10 minutes
+      run: sleep 600
